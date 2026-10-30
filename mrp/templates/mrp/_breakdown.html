@@ -1,0 +1,39 @@
+{% load mrp_format %}
+<div class="breakdown">
+  <p class="breakdown-title">Where {{ plan.sku }} is used ({{ plan.component.lead_time_days|lead_time }} lead time)</p>
+  <table class="breakdown-table">
+    <thead>
+      <tr>
+        <th scope="col">Finished good</th>
+        <th scope="col" class="num">Qty per unit</th>
+        <th scope="col" class="num">FG demand / mo</th>
+        <th scope="col" class="num">FG on hand</th>
+        <th scope="col" class="num">Component / mo</th>
+        <th scope="col" class="num">Demand in lead time</th>
+        <th scope="col" class="num">In FG stock</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in plan.breakdown %}
+      <tr>
+        <th scope="row"><span class="sku">{{ r.fg_sku }}</span>{% if r.fg_description %} · {{ r.fg_description }}{% endif %}</th>
+        <td class="num">{{ r.qty_per|qty }}</td>
+        <td class="num">{{ r.fg_demand_per_month|qty }}</td>
+        <td class="num">{{ r.fg_on_hand|qty }}</td>
+        <td class="num">{{ r.component_per_month|qty }}</td>
+        <td class="num">{{ r.demand_in_lead_time|qty }}</td>
+        <td class="num">{{ r.embedded_qty|qty }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th scope="row">Total</th>
+        <td></td><td></td><td></td>
+        <td class="num strong">{{ plan.usage_per_month|qty }}</td>
+        <td class="num strong">{{ plan.demand_in_lead_time|qty }}</td>
+        <td class="num strong">{{ plan.embedded_stock|qty }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>

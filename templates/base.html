@@ -1,0 +1,45 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Purchasing Planner{% endblock %} · Westridge MRP</title>
+  <link rel="stylesheet" href="{% static 'mrp/app.css' %}">
+  <script src="{% static 'mrp/htmx.min.js' %}" defer></script>
+  <script src="{% static 'mrp/app.js' %}" defer></script>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="layout">
+    {% if user.is_authenticated %}
+    <nav class="sidebar" aria-label="Main">
+      <div class="brand">Westridge <span>Operations</span></div>
+      <ul class="nav-list">
+        <li><a href="{% url 'mrp:plan' %}" class="nav-item{% if nav == 'plan' %} is-active{% endif %}"{% if nav == 'plan' %} aria-current="page"{% endif %}>Purchasing (MRP)</a></li>
+        <li><a href="{% url 'mrp:lead_times' %}" class="nav-item nav-sub{% if nav == 'lead_times' %} is-active{% endif %}"{% if nav == 'lead_times' %} aria-current="page"{% endif %}>Lead times &amp; change log</a></li>
+      </ul>
+      <p class="nav-heading" id="coming-later">Coming later</p>
+      <ul class="nav-list" aria-labelledby="coming-later">
+        <li><span class="nav-item is-disabled" aria-disabled="true">Purchase orders</span></li>
+        <li><span class="nav-item is-disabled" aria-disabled="true">Production orders</span></li>
+        <li><span class="nav-item is-disabled" aria-disabled="true">SKUs</span></li>
+        <li><span class="nav-item is-disabled" aria-disabled="true">Bills of materials</span></li>
+      </ul>
+      <div class="nav-footer">
+        <p class="nav-user">{{ user.get_full_name|default:user.username }}<br><span>{% if user.is_superuser %}Admin{% elif is_planner %}Planner{% else %}Viewer{% endif %}</span></p>
+        {% if user.is_staff %}<a class="nav-link" href="{% url 'admin:index' %}">Admin</a>{% endif %}
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="link-button">Sign out</button></form>
+      </div>
+    </nav>
+    {% endif %}
+    <main id="main" class="main" tabindex="-1">
+      {% if messages %}
+      <div class="messages" role="status">
+        {% for message in messages %}<p class="message message-{{ message.tags }}">{{ message }}</p>{% endfor %}
+      </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

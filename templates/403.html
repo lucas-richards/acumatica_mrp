@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}No access{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>No access</h1>
+  <p>{{ exception|default:"You don't have permission to see this page." }}</p>
+  <p><a href="{% url 'mrp:plan' %}">Back to the planner</a></p>
+</section>
+{% endblock %}

@@ -114,6 +114,10 @@ class ComponentPlan:
     def needs_order(self) -> bool:
         return self.suggested_qty > 0
 
+    @property
+    def on_hand_and_order(self) -> Decimal:
+        return self.component.on_hand + self.component.on_order
+
 
 @dataclass
 class PlanSummary:

@@ -1,0 +1,201 @@
+{% load mrp_format %}{% url 'mrp:plan' as plan_url %}
+<section class="card filters" aria-label="Filters">
+  <div class="filter-group">
+    <h2 class="label" id="vendor-label">Vendor</h2>
+    <div class="chips" role="group" aria-labelledby="vendor-label">
+      {% for vid, name, q in vendor_chips %}
+      <a class="chip{% if vid == options.vendor_id|default_if_none:'' %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
+         hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true"
+         {% if vid == options.vendor_id|default_if_none:'' %}aria-current="true"{% endif %}>{{ name }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="filter-row">
+    <div class="filter-group">
+      <h2 class="label" id="cover-label">Cover after new order arrives</h2>
+      <div class="chips" role="group" aria-labelledby="cover-label">
+        {% for n, label, q in cover_chips %}
+        <a class="chip{% if n == options.cover_months %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
+           hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true"
+           {% if n == options.cover_months %}aria-current="true"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="filter-group">
+      <h2 class="label" id="mode-label">Order quantities</h2>
+      <div class="chips" role="group" aria-labelledby="mode-label">
+        {% for value, label, q in mode_chips %}
+        <a class="chip{% if value == options.qty_mode.value %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
+           hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true"
+           {% if value == options.qty_mode.value %}aria-current="true"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% if is_planner and not is_default_view %}
+  <form method="post" action="{% url 'mrp:save_defaults' %}" class="save-defaults">
+    {% csrf_token %}
+    <input type="hidden" name="cover" value="{{ options.cover_months }}">
+    <input type="hidden" name="mode" value="{{ options.qty_mode.value }}">
+    <input type="hidden" name="next" value="{{ plan_url }}{{ query }}">
+    <button type="submit" class="btn btn-small">Save cover and quantity mode as default</button>
+    <span class="hint">The default is used when the page opens and for reminder emails.</span>
+  </form>
+  {% endif %}
+</section>
+
+{% with s=result.summary %}
+<section class="tiles" aria-label="Summary">
+  <div class="card tile">
+    <h2 class="label">Components to order</h2>
+    <p class="tile-value">{{ s.components_to_order }}</p>
+    <p class="tile-note">of {{ s.shown }} shown</p>
+  </div>
+  <div class="card tile">
+    <h2 class="label">Out before order arrives</h2>
+    <p class="tile-value{% if s.out_before_arrival %} text-danger{% endif %}">{{ s.out_before_arrival|length }}</p>
+    <p class="tile-note">{% if s.out_before_arrival %}{{ s.out_before_arrival|join:", " }}{% else %}None at current lead times{% endif %}</p>
+  </div>
+  <div class="card tile">
+    <h2 class="label">Next order-by date</h2>
+    {% if s.next_order_now %}
+      <p class="tile-value text-warning">Now</p>
+      <p class="tile-note">{{ s.late_count }} already late to order</p>
+    {% elif s.next_order_by %}
+      <p class="tile-value text-warning">{{ s.next_order_by|date:"M j" }}</p>
+      <p class="tile-note">in {{ s.next_order_by|timeuntil:result.today }}</p>
+    {% else %}
+      <p class="tile-value">—</p>
+      <p class="tile-note">Nothing to order</p>
+    {% endif %}
+  </div>
+  <div class="card tile">
+    <h2 class="label">Estimated order value</h2>
+    <p class="tile-value text-accent">{{ s.estimated_value|money }}</p>
+    <p class="tile-note">{{ s.vendor_count }} vendor{{ s.vendor_count|pluralize }} · {% if cover_target_mode %}quantities to reach cover{% else %}matching last PO{% endif %}{% if s.missing_cost_count %} · {{ s.missing_cost_count }} without cost{% endif %}</p>
+  </div>
+</section>
+{% endwith %}
+
+<section class="card" aria-labelledby="reminders-title">
+  <h2 class="section-title" id="reminders-title">Order reminders by vendor</h2>
+  <p class="section-intro">With lead times from 2 weeks to 5 months, each vendor has its own order-by date. A reminder turns on a set number of days before it.</p>
+  <h3 class="label" id="remind-label">Remind me</h3>
+  {% if is_planner %}
+  <form method="post" action="{% url 'mrp:save_reminder_days' %}" class="chips" role="group" aria-labelledby="remind-label">
+    {% csrf_token %}<input type="hidden" name="next" value="{{ plan_url }}{{ query }}">
+    {% for d in reminder_choices %}
+    <button type="submit" name="reminder_days" value="{{ d }}" class="chip{% if d == result.reminder_days %} is-active{% endif %}" aria-pressed="{% if d == result.reminder_days %}true{% else %}false{% endif %}">{{ d }} days before</button>
+    {% endfor %}
+  </form>
+  {% else %}
+  <div class="chips" role="group" aria-labelledby="remind-label">
+    {% for d in reminder_choices %}
+    <button type="button" class="chip{% if d == result.reminder_days %} is-active{% endif %}" aria-pressed="{% if d == result.reminder_days %}true{% else %}false{% endif %}" disabled>{{ d }} days before</button>
+    {% endfor %}
+  </div>
+  <p class="hint">Only planners can change the reminder window.</p>
+  {% endif %}
+
+  <ul class="vendor-cards">
+    {% for r in result.reminders %}
+    <li class="card vendor-card{% if r.vendor.vendor_id == options.vendor_id %} is-selected{% endif %}">
+      <div class="vendor-card-head">
+        <h3><a href="{{ plan_url }}?vendor={{ r.vendor.vendor_id|urlencode }}&amp;cover={{ options.cover_months }}&amp;mode={{ options.qty_mode.value }}">{{ r.vendor.name }}</a></h3>
+        <span class="pill pill-{{ r.status|status_class }}">{{ r.status.value }}</span>
+      </div>
+      <p class="vendor-when">{% if not r.components_due %}Nothing to order yet{% elif r.order_now %}Order now{% else %}Order by {{ r.next_order_by|date:"M j" }}{% endif %}</p>
+      <p class="muted">Lead time {{ r.vendor.lead_time_days|lead_time }} · {% if r.components_due %}{{ r.components_due }} component{{ r.components_due|pluralize }} due{% else %}No components due{% endif %}</p>
+    </li>
+    {% empty %}
+    <li class="muted">No vendors loaded.</li>
+    {% endfor %}
+  </ul>
+  <div class="actions">
+    <a class="btn btn-outline" href="{% url 'mrp:calendar_ics' %}">Add order-by dates to calendar (.ics)</a>
+    <form method="post" action="{% url 'mrp:toggle_digest' %}">
+      {% csrf_token %}<input type="hidden" name="next" value="{{ plan_url }}{{ query }}">
+      <button type="submit" class="btn btn-outline" aria-pressed="{% if subscribed %}true{% else %}false{% endif %}">{% if subscribed %}Stop the Monday email{% else %}Email me this list every Monday{% endif %}</button>
+    </form>
+  </div>
+</section>
+
+<section class="card table-card" aria-labelledby="components-title">
+  <div class="table-head">
+    <div>
+      <h2 class="section-title" id="components-title">Components</h2>
+      <p class="section-intro">Order qty = usage × (lead time + cover months) − supply position. Select the finished goods count to see what drives each component. Most urgent first.</p>
+    </div>
+    <p class="legend"><span class="legend-marker" aria-hidden="true"></span> Marker = lead time + cover</p>
+  </div>
+  <div class="table-scroll" tabindex="0" role="region" aria-labelledby="components-title">
+    <table class="plan-table">
+      <thead>
+        <tr>
+          <th scope="col">Component</th>
+          <th scope="col">FGs affected</th>
+          <th scope="col" class="num">Usage / mo</th>
+          <th scope="col">Lead time</th>
+          <th scope="col" class="num">Demand in lead time</th>
+          <th scope="col" class="num">On hand + on order</th>
+          <th scope="col">Months of supply</th>
+          <th scope="col">Order by</th>
+          <th scope="col" class="num">Last PO</th>
+          <th scope="col" class="num">Order qty</th>
+          <th scope="col" class="num">Est. cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in result.plans %}
+        <tr class="row-{{ p.status|status_class }}">
+          <th scope="row" class="component-cell">
+            <span class="sku">{{ p.sku }}</span> · {{ p.component.description }}
+            <span class="vendor-name">{{ p.component.vendor_name|default:"No vendor" }}</span>
+            {% if p.flags %}<span class="flags">{% for f in p.flags %}<span class="flag">{{ f|flag_label }}</span>{% endfor %}</span>{% endif %}
+          </th>
+          <td>
+            {% if p.breakdown %}
+            <button type="button" class="expand-btn" data-toggle-row aria-expanded="false" aria-controls="bd-{{ forloop.counter }}"
+                    hx-get="{% url 'mrp:breakdown' p.sku %}{{ query }}" hx-target="#bd-{{ forloop.counter }}-cell" hx-trigger="click once">
+              {{ p.breakdown|length }} FG{{ p.breakdown|length|pluralize }} <span aria-hidden="true" class="chev">⌄</span>
+              <span class="visually-hidden">for {{ p.sku }}</span>
+            </button>
+            {% else %}<span class="muted">None</span>{% endif %}
+          </td>
+          <td class="num">{{ p.usage_per_month|qty }}</td>
+          <td>{{ p.component.lead_time_days|lead_time }}</td>
+          <td class="num strong">{{ p.demand_in_lead_time|qty }}</td>
+          <td class="num">
+            {{ p.on_hand_and_order|qty }}
+            {% if p.embedded_stock %}<span class="sub">+{{ p.embedded_stock|qty }} in FG stock</span>{% endif %}
+          </td>
+          <td class="mos-cell">
+            {% supply_bar p as bar %}
+            <div class="mos">
+              <div class="bar" role="img" aria-label="{{ p.months_of_supply|months }} months of supply against a target of {{ p.target_months|months }} months">
+                <span class="bar-fill fill-{{ p.status|status_class }}" style="width: {{ bar.fill }}%"></span>
+                <span class="bar-marker" style="left: {{ bar.marker }}%"></span>
+              </div>
+              <span class="mos-value">{{ p.months_of_supply|months }}</span>
+            </div>
+            <span class="pill pill-{{ p.status|status_class }}">{{ p.status.value }}</span>
+          </td>
+          <td class="order-by">{% if p.order_by_date is None %}<span class="muted">—</span>{% elif p.order_now %}<span class="text-danger strong">Now</span>{% else %}{{ p.order_by_date|date:"M j" }}{% endif %}</td>
+          <td class="num">{% if p.component.last_po_qty is not None %}{{ p.component.last_po_qty|qty }}<span class="sub">{{ p.component.last_po_date|date:"M j, Y" }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="num strong">{% if p.suggested_qty %}{{ p.suggested_qty|qty }}{% else %}<span class="muted">0</span>{% endif %}</td>
+          <td class="num">{% if p.suggested_qty %}{{ p.estimated_cost|money }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        </tr>
+        <tr id="bd-{{ forloop.counter }}" class="breakdown-row" hidden>
+          <td colspan="11" id="bd-{{ forloop.counter }}-cell"><p class="muted">Loading…</p></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="empty">No components to show. Load data with <code>manage.py seed_demo</code>, <code>import_data</code> or <code>sync_acumatica</code>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-foot">
+    <a class="btn" href="{% url 'mrp:export_csv' %}{{ query }}">Export CSV (grouped by vendor)</a>
+    <span class="hint">Demand source: {{ result.demand_source|words|capfirst }}{% if result.demand_source == 'trailing_shipments' %} (average of the last {{ settings.demand_window_months }} full months){% endif %}</span>
+  </div>
+</section>
