@@ -72,6 +72,7 @@ class ComponentInput:
     unit_cost: Optional[Decimal] = None
     last_po_qty: Optional[Decimal] = None
     last_po_date: Optional[dt.date] = None
+    on_order_since: Optional[dt.date] = None     # order date of the oldest open PO line
 
 
 @dataclass(frozen=True)
@@ -120,11 +121,12 @@ class ComponentPlan:
 
     @property
     def months_at_arrival(self) -> Optional[Decimal]:
-        """Months of inventory left when an order placed today arrives (after the lead time),
-        including the suggested quantity. None when there is no usage."""
-        if self.usage_per_month <= 0:
+        """Months of inventory left when an order placed today would arrive (after the lead time),
+        from current supply only, without the new order. Negative means stock runs out that many
+        months before the order could arrive. None when there is no usage."""
+        if self.months_of_supply is None:
             return None
-        return (self.supply_position + self.suggested_qty) / self.usage_per_month - self.lead_time_months
+        return self.months_of_supply - self.lead_time_months
 
 
 @dataclass

@@ -89,13 +89,17 @@ def status_class(status):
 
 @register.simple_tag
 def supply_bar(plan):
-    """Bar fill and target marker positions (percent). The scale is target x 1.6 so the marker sits at 62.5%."""
+    """Bar fill plus two line positions (percent): the lead time (red) and the reorder point,
+    lead time + cover months. The scale is reorder point x 1.6 so that line always sits at 62.5%."""
     scale = plan.target_months * Decimal('1.6')
+    if scale <= 0:
+        scale = Decimal(1)
     if plan.months_of_supply is None:
         fill = Decimal(100)
-    elif scale <= 0:
-        fill = Decimal(100) if plan.months_of_supply > 0 else Decimal(0)
     else:
         fill = min(plan.months_of_supply / scale * 100, Decimal(100))
-    marker = Decimal('62.5') if scale > 0 else Decimal(0)
-    return {'fill': f'{_q(fill, 1)}', 'marker': f'{marker}'}
+    return {
+        'fill': f'{_q(fill, 1)}',
+        'lead': f'{_q(plan.lead_time_months / scale * 100, 1)}',
+        'reorder': f'{_q(plan.target_months / scale * 100, 1)}',
+    }

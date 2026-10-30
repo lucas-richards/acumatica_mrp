@@ -126,8 +126,10 @@ class PlanComponentTests(unittest.TestCase):
 
     def test_months_at_arrival(self):
         p = self.plan(component(on_hand=D(10), on_order=D(5)))
-        # supply 25 + order 15 = 40, usage 20/mo -> 2 months, minus 1 month lead time
-        self.assertEqual(p.months_at_arrival, D(1))
+        # current supply only (25 incl. 10 in FG stock), usage 20/mo -> 1.25 months, minus 1 month lead time
+        self.assertEqual(p.months_at_arrival, D('0.25'))
+        short = self.plan(component(on_hand=D(0), lead_time_days=60))
+        self.assertEqual(short.months_at_arrival, D('-1.5'))   # 10 embedded / 20 = 0.5 - 2 months
         covered = self.plan(component(on_hand=D(1000)))
         self.assertEqual(covered.months_at_arrival, D('49.5'))   # 1010 / 20 - 1
 

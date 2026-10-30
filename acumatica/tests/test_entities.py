@@ -23,6 +23,12 @@ class FakeClient:
             raise AcumaticaPermissionError(f'{entity}: You have insufficient rights', 403)
         return self.records.get(entity, [])
 
+    def inquiry(self, endpoint, entity, parameters, expand='Results'):
+        self.calls.append((endpoint, entity, str(parameters)))
+        if entity in self.deny or entity not in self.records:
+            raise AcumaticaPermissionError(f'{entity}: You have insufficient rights', 403)
+        return self.records[entity]
+
 
 def item(sku, base='EACH', conversions=(), warehouses=(), vendors=(), last_cost=None, **extra):
     return {'InventoryID': sku, 'Description': f'{sku} desc', 'ItemClass': 'CLS', 'BaseUOM': base,
@@ -166,7 +172,7 @@ class FetchAllTests(unittest.TestCase):
         result, _ = run()
         self.assertEqual(result.data['open_po_lines'], [{
             'order_nbr': 'PO1', 'line_nbr': 1, 'sku': 'C-BOLT', 'vendor_id': 'V1', 'qty_open': D(200),
-            'promised_date': dt.date(2026, 11, 15)}])
+            'promised_date': dt.date(2026, 11, 15), 'order_date': dt.date(2026, 9, 1)}])
         history = {(r['order_nbr'], r['sku']): r for r in result.data['po_history']}
         self.assertEqual(history[('PO1', 'C-BOLT')]['qty'], D(300))
         self.assertEqual(history[('PO1', 'C-BOLT')]['unit_cost'], D('0.12'))
@@ -219,6 +225,26 @@ class FetchAllTests(unittest.TestCase):
         result, _ = run(records)
         self.assertNotIn('GONE', {r['component_sku'] for r in result.data['bom']})
         self.assertTrue(any('GONE' in w for w in result.warnings))
+
+    def test_available_quantity_when_accessible(self):
+        records = base_records()
+        records['InventoryQuantityAvailable'] = {'Results': [{'InventoryID': 'C-BOLT', 'QtyAvailable': 120},
+                                                             {'InventoryID': 'FG-1', 'QtyAvailable': 4}]}
+        result, _ = run(records)
+        avail = {r['sku']: r['qty_available'] for r in result.data['stock_items']}
+        self.assertEqual(avail['C-BOLT'], D(120))
+        self.assertEqual(avail['FG-1'], D(4))
+        self.assertEqual(avail['C-PLATE'], D(0))
+        self.assertFalse(any('SO640590' in w for w in result.warnings))
+
+    def test_available_quantity_without_access_falls_back(self):
+        result, _ = run()
+        self.assertTrue(all(r['qty_available'] is None for r in result.data['stock_items']))
+        self.assertTrue(any('SO640590' in w for w in result.warnings))
+
+    def test_open_po_order_date(self):
+        result, _ = run()
+        self.assertEqual(result.data['open_po_lines'][0]['order_date'], dt.date(2026, 9, 1))
 
     def test_months_ago(self):
         self.assertEqual(entities.months_ago(dt.date(2026, 2, 14), 3), dt.date(2025, 11, 1))

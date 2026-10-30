@@ -1,0 +1,5 @@
+<div class="refresh-banner" role="status" hx-get="{% url 'mrp:refresh_status' %}" hx-trigger="every 5s" hx-swap="outerHTML">
+  <span class="spinner spinner-small" aria-hidden="true"></span>
+  <p><strong>Refreshing from Acumatica<span class="dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></strong>
+    <span class="muted">Started {{ running.started_at|time:"g:i A" }}{% if running.triggered_by %} by {{ running.triggered_by }}{% endif %}. This usually takes 1 to 2 minutes; you can keep using the page and it will update when done.</span></p>
+</div>

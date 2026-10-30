@@ -106,7 +106,7 @@ Each dataset in the file fully replaces what is stored. If any row is invalid, n
 .venv/bin/python manage.py sync_acumatica --all-demand    # pull all three demand sources
 ```
 
-The sync reads everything first and then replaces the local tables in one transaction. If anything fails, such as a network error, a missing column or a bad value, the previous data stays and the error is recorded as a failed sync run (visible in the admin). Planners can also run the same sync with **Refresh from Acumatica**.
+The sync reads everything first and then replaces the local tables in one transaction. If anything fails, such as a network error, a missing column or a bad value, the previous data stays and the error is recorded as a failed sync run (visible in the admin). Planners can also start the same sync with **Refresh from Acumatica**; it runs as a separate background process and the page shows a "Refreshing…" banner until it finishes.
 
 `docs/acumatica_access.md` explains exactly what is read, how it is filtered and converted, and which Acumatica screen rights the user needs.
 
@@ -137,7 +137,8 @@ The logic lives in `planning/mrp.py`. A month is 30 days.
   - **Stockout risk** if months of supply < lead time
   - **Order soon** if months of supply < target
   - otherwise **Covered**
-- months on hand at arrival = (supply position + suggested qty) ÷ usage − lead time months, assuming the order is placed today. It is at least 2 for every component with usage.
+- months left when an order arrives = months of supply − lead time months, from current supply only (not counting the suggested order), for an order placed today. Negative means stock runs out that many months before an order could arrive.
+- on hand = Acumatica's available quantity when accessible, otherwise quantity on hand
 
 Edge cases:
 - No usage means infinite cover and no order-by date. It is flagged.

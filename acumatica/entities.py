@@ -43,6 +43,8 @@ DEMAND_SOURCE_ENTITIES = {
 class Client(Protocol):
     def fetch(self, endpoint: str, entity: str, *, select=None, expand=None, filter: str = '') -> list[dict]: ...
 
+    def inquiry(self, endpoint: str, entity: str, parameters: dict, expand: str = 'Results') -> dict: ...
+
 
 @dataclass
 class FetchOptions:
@@ -226,6 +228,24 @@ def explode(direct: dict[str, list[tuple[str, Decimal]]], warnings: list[str]) -
     return {parent: walk(parent, ()) for parent in direct}
 
 
+def fetch_available(client: Client, warnings: list[str]) -> Optional[dict[str, Decimal]]:
+    """Available quantity per item (all warehouses, base unit) from the Inventory Quantity
+    Available inquiry. None when the user has no access; the planner then uses on-hand."""
+    try:
+        result = client.inquiry('default', 'InventoryQuantityAvailable',
+                                {'LastModifiedDateTime': '1900-01-01T00:00:00'})
+    except AcumaticaPermissionError:
+        warnings.append('Available quantity is not accessible (Inventory Quantity Available screen SO640590); '
+                        'the planner uses quantity on hand instead. Ask your Acumatica admin for access.')
+        return None
+    available: dict[str, Decimal] = defaultdict(Decimal)
+    for row in result.get('Results') or []:
+        sku = (row.get('InventoryID') or '').strip()
+        if sku:
+            available[sku] += dec(row.get('QtyAvailable')) or Decimal(0)
+    return dict(available)
+
+
 # ---------------------------------------------------------------------------
 # Main fetch
 # ---------------------------------------------------------------------------
@@ -292,6 +312,7 @@ def fetch_all(client: Client, options: FetchOptions) -> FetchResult:
                    for p, leaves in exploded.items() if p in relevant
                    for c, q in leaves.items() if q > 0 and c in relevant]
 
+    available = fetch_available(client, warnings)
     data['stock_items'] = [{
         'sku': sku,
         'description': items[sku].get('Description') or '',
@@ -299,6 +320,7 @@ def fetch_all(client: Client, options: FetchOptions) -> FetchResult:
         'kind': 'finished_good' if sku in parents else 'component',
         'uom': items[sku].get('BaseUOM') or '',
         'lot_size': None,
+        'qty_available': None if available is None else available.get(sku, Decimal(0)),
     } for sku in sorted(relevant)]
 
     data['on_hand'] = [
@@ -367,6 +389,7 @@ def fetch_all(client: Client, options: FetchOptions) -> FetchResult:
                         'order_nbr': po.get('OrderNbr'), 'line_nbr': line.get('LineNbr'), 'sku': sku,
                         'vendor_id': po.get('VendorID'), 'qty_open': open_qty,
                         'promised_date': to_date(line.get('Promised')),
+                        'order_date': order_date,
                     })
             if status != 'Canceled' and not line.get('Cancelled') and order_date and order_date >= since:
                 data['po_history'].append({

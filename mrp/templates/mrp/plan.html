@@ -14,18 +14,19 @@
   {% if is_planner %}
   <form method="post" action="{% url 'mrp:refresh' %}" data-refresh-form>
     {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
-    <button type="submit" class="btn btn-outline"{% if not acumatica_configured %} aria-describedby="refresh-note"{% endif %}>Refresh from Acumatica</button>
+    <button type="submit" class="btn btn-outline"{% if running_sync %} disabled{% endif %}{% if not acumatica_configured %} aria-describedby="refresh-note"{% endif %}>{% if running_sync %}Refreshing…{% else %}Refresh from Acumatica{% endif %}</button>
     {% if not acumatica_configured %}<p id="refresh-note" class="hint">Not connected yet</p>{% endif %}
   </form>
   {% endif %}
 </header>
+
+{% if running_sync %}{% include "mrp/_refresh_status.html" with running=running_sync %}{% endif %}
 
 <div id="plan-loading" class="htmx-indicator loading" role="status" aria-live="polite">
   <span class="loading-bar" aria-hidden="true"></span>
   <div class="loading-card">
     <span class="spinner" aria-hidden="true"></span>
     <p class="loading-title"><span data-loading-text>Loading</span><span class="dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></p>
-    <p class="loading-note" data-loading-note hidden></p>
   </div>
 </div>
 <div id="plan-content">

@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
 from acumatica.rest import AcumaticaError
@@ -15,6 +16,7 @@ class Command(BaseCommand):
                             help='Demand source(s) to pull. Default: the source chosen in plan settings.')
         parser.add_argument('--all-demand', action='store_true',
                             help='Pull trailing shipments and open sales orders.')
+        parser.add_argument('--user-id', type=int, help='User who asked for the refresh (set by the web page).')
 
     def handle(self, *args, **options):
         if not sync.acumatica_configured():
@@ -26,7 +28,8 @@ class Command(BaseCommand):
         else:
             sources = options['demand_source']
         try:
-            run = sync.run_sync(demand_sources=sources)
+            user = get_user_model().objects.filter(pk=options['user_id']).first() if options['user_id'] else None
+            run = sync.run_sync(user=user, demand_sources=sources)
         except (AcumaticaError, loaders.DataLoadError, sync.SyncInProgress) as exc:
             raise CommandError(f'Sync failed, existing data kept: {exc}')
         for warning in run.warnings:

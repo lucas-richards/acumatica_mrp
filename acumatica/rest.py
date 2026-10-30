@@ -1,8 +1,9 @@
 """Read-only client for Acumatica's contract-based REST API.
 
 Logs in with a cookie session, pages through entities with $top/$skip and always
-logs out (each open session uses one of the instance's API logins). Only GET
-requests are made against entities; nothing is ever written to Acumatica.
+logs out (each open session uses one of the instance's API logins). Entities are
+only read with GET; read-only inquiry screens are run with PUT of their filter
+values, which is how Acumatica runs an inquiry. Nothing is ever written.
 """
 from __future__ import annotations
 
@@ -13,6 +14,10 @@ from typing import Any, Iterator, Optional
 import requests
 
 log = logging.getLogger('acumatica')
+
+
+# Inquiry screens (no data changes) that may be run with RestClient.inquiry()
+INQUIRIES = frozenset({'InventoryQuantityAvailable'})
 
 
 class AcumaticaError(Exception):
@@ -127,6 +132,23 @@ class RestClient:
             if len(rows) < self.config.page_size:
                 return
             skip += len(rows)
+
+    def inquiry(self, endpoint: str, entity: str, parameters: dict[str, Any], expand: str = 'Results') -> dict[str, Any]:
+        """Run a read-only inquiry screen. Acumatica runs inquiries with a PUT of the filter
+        values; this changes no data. Only entities listed in INQUIRIES may be used."""
+        if entity not in INQUIRIES:
+            raise AcumaticaError(f'{entity} is not an allowed read-only inquiry')
+        url = self._url(f'/entity/{self.config.endpoint(endpoint)}/{entity}')
+        body = {k: {'value': v} for k, v in parameters.items()}
+        try:
+            r = self.session.put(url, params={'$expand': expand}, json=body, timeout=self.config.timeout)
+        except requests.RequestException as exc:
+            raise AcumaticaRequestError(f'{entity}: request failed: {exc}') from exc
+        if r.status_code in (401, 403):
+            raise AcumaticaPermissionError(f'{entity}: {_message(r)}', r.status_code)
+        if r.status_code != 200:
+            raise AcumaticaRequestError(f'{entity}: HTTP {r.status_code}: {_message(r)}', r.status_code)
+        return flatten(r.json())
 
     def fetch(self, endpoint: str, entity: str, **kwargs) -> list[dict[str, Any]]:
         rows = list(self.iter_entities(endpoint, entity, **kwargs))

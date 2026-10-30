@@ -7,9 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
-from acumatica.rest import AcumaticaError
-
-from . import exports, loaders, models, services, sync
+from . import exports, models, services, sync
 from .forms import LeadTimeOverrideForm
 from .roles import is_planner, planner_required, viewer_required
 
@@ -45,6 +43,7 @@ def _plan_context(request):
         'query': _query(options),
         'last_sync': services.last_sync(),
         'acumatica_configured': sync.acumatica_configured(),
+        'running_sync': sync.running_sync(),
     }
 
 
@@ -112,14 +111,28 @@ def refresh(request):
         messages.error(request, 'Acumatica is not connected yet. The planner is showing the sample or imported data.')
         return _back(request)
     try:
-        run = sync.run_sync(user=request.user)
+        sync.start_background_sync(request.user)
     except sync.SyncInProgress as exc:
         messages.warning(request, str(exc))
-    except (AcumaticaError, loaders.DataLoadError) as exc:
-        messages.error(request, f'Refresh failed; the previous data is still shown. {exc}')
-    else:
-        messages.success(request, f'Refreshed from Acumatica ({sum(run.counts.values()):,} rows).')
     return _back(request)
+
+
+@require_GET
+@viewer_required
+def refresh_status(request):
+    """HTMX poll target: the refresh banner while a sync runs; tells the page to reload when done."""
+    running = sync.running_sync()
+    if running:
+        return render(request, 'mrp/_refresh_status.html', {'running': running})
+    latest = models.SyncRun.objects.filter(source=models.SyncRun.ACUMATICA).first()
+    if latest and latest.status == models.SyncRun.OK:
+        messages.success(request, f'Refreshed from Acumatica ({sum(latest.counts.values()):,} rows'
+                                  f'{", " + str(len(latest.warnings)) + " warnings" if latest.warnings else ""}).')
+    elif latest:
+        messages.error(request, f'Refresh failed; the previous data is still shown. {latest.error}')
+    response = HttpResponse('')
+    response['HX-Refresh'] = 'true'
+    return response
 
 
 @viewer_required

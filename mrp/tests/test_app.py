@@ -2,6 +2,7 @@ import csv
 import datetime as dt
 import io
 import json
+import os
 import tempfile
 from decimal import Decimal as D
 from pathlib import Path
@@ -52,8 +53,9 @@ class PlanPageTests(TestCase):
         self.client.force_login(self.viewer)
         response = self.client.get(reverse('mrp:plan'))
         self.assertEqual(response.status_code, 200)
-        for text in ['Sample data', '+120 in FG stock', 'Stockout risk', 'Months on hand at arrival',
-                     'lead time + 2 months']:
+        for text in ['Sample data', '+120 in FG stock', 'Stockout risk', 'Months left when an order arrives',
+                     'Reorder point (lead time + 2 months)', 'line-lead', 'line-reorder', 'runs out before it arrives',
+                     'Showing quantity <strong>on hand</strong>']:
             self.assertContains(response, text)
         # Removed from the page: summary tiles, cover/quantity choices, reminders
         for text in ['Components to order', 'Cover after new order arrives', 'Order quantities',
@@ -64,8 +66,19 @@ class PlanPageTests(TestCase):
         self.client.force_login(self.viewer)
         response = self.client.get(reverse('mrp:plan'))
         bearing = next(p for p in response.context['result'].plans if p.sku == 'COMP-2250')
-        self.assertEqual(round(bearing.months_at_arrival, 1), D('2.4'))
-        self.assertContains(response, '2.4 mo')
+        self.assertEqual(round(bearing.months_at_arrival, 1), D('-2.2'))
+        self.assertContains(response, '-2.2 mo')
+
+    def test_available_and_on_order_since(self, _today):
+        models.StockItem.objects.update(qty_available=7)
+        models.OpenPOLine.objects.filter(sku='COMP-2250').update(order_date=dt.date(2026, 8, 3))
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('mrp:plan'))
+        self.assertContains(response, '>Available</th>')
+        self.assertNotContains(response, 'Showing quantity <strong>on hand</strong>')
+        self.assertContains(response, 'since Aug 3, 2026')
+        bearing = next(p for p in response.context['result'].plans if p.sku == 'COMP-2250')
+        self.assertEqual(bearing.component.on_hand, 7)
 
     def test_top_five_vendor_chips_and_search(self, _today):
         models.Vendor.objects.create(vendor_id='TINY', name='Tiny Springs')
@@ -114,7 +127,7 @@ class PlanPageTests(TestCase):
         self.client.force_login(self.viewer)
         response = self.client.get(reverse('mrp:plan'), HTTP_HX_REQUEST='true')
         self.assertNotContains(response, '<html')
-        self.assertContains(response, 'Months on hand at arrival')
+        self.assertContains(response, 'Months left when an order arrives')
 
     def test_breakdown(self, _today):
         self.client.force_login(self.viewer)
@@ -191,9 +204,9 @@ class ExportTests(TestCase):
         vendors = [r[0] for r in data]
         self.assertEqual(vendors, sorted(vendors))
         bearing = next(r for r in data if r[2] == 'COMP-2250')
-        self.assertEqual((bearing[4], bearing[13], bearing[16], bearing[17], bearing[19]),
-                         ('Stockout risk', 'Now', '500', '2.4', '2100'))
-        subtotals = {r[0]: r[19] for r in rows if len(r) > 2 and r[2] == 'SUBTOTAL'}
+        self.assertEqual((bearing[4], bearing[8], bearing[9], bearing[14], bearing[15], bearing[16], bearing[18], bearing[20]),
+                         ('Stockout risk', '50', '30', 'Now', '500', '600', '-2.2', '2100'))
+        subtotals = {r[0]: r[20] for r in rows if len(r) > 2 and r[2] == 'SUBTOTAL'}
         self.assertEqual(subtotals['Pacific Drives'], '5950')
         self.assertEqual(sum(D(v) for v in subtotals.values()), D('10195'))
 
@@ -283,8 +296,38 @@ class SyncTests(TestCase):
         self.assertIn('AM208000', run.error)
         self.assertIsNotNone(run.finished_at)
 
+    def test_dead_run_is_cleared(self, _today):
+        models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA, pid=999999999)
+        self.assertIsNone(sync.running_sync())
+        run = models.SyncRun.objects.get()
+        self.assertEqual(run.status, models.SyncRun.FAILED)
+        self.assertIn('Interrupted', run.error)
+
+    def test_refresh_starts_background_process(self, _today):
+        planner = make_user('pat', 'planner')
+        self.client.force_login(planner)
+        with mock.patch('mrp.sync.subprocess.Popen') as popen:
+            response = self.client.post(reverse('mrp:refresh'))
+        self.assertEqual(response.status_code, 302)
+        args = popen.call_args.args[0]
+        self.assertEqual(args[-3:], ['sync_acumatica', '--user-id', str(planner.pk)])
+        self.assertTrue(popen.call_args.kwargs['start_new_session'])
+
+    def test_refresh_status_banner_then_reload(self, _today):
+        self.client.force_login(make_user('vic', 'viewer'))
+        run = models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA, pid=os.getpid())
+        response = self.client.get(reverse('mrp:refresh_status'))
+        self.assertContains(response, 'Refreshing from Acumatica')
+        self.assertContains(response, 'hx-trigger="every 5s"')
+        page = self.client.get(reverse('mrp:plan'))
+        self.assertContains(page, 'Refreshing from Acumatica')
+        run.status, run.counts = models.SyncRun.OK, {'bom': 3}
+        run.save()
+        response = self.client.get(reverse('mrp:refresh_status'))
+        self.assertEqual(response['HX-Refresh'], 'true')
+
     def test_concurrent_sync_blocked(self, _today):
-        models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA)
+        models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA, pid=os.getpid())
         with self.assertRaises(sync.SyncInProgress):
             sync.run_sync(client=FakeClient(base_records()))
 

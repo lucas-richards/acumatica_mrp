@@ -28,6 +28,7 @@ class PlanInputs:
     finished_goods: list[FinishedGood]
     vendors: list[VendorInfo]
     lead_time_sources: dict[str, str]    # sku -> 'override' | 'item_vendor' | 'vendor' | 'missing'
+    uses_available: bool = False          # quantities are Acumatica "available", not on hand
 
 
 def to_decimal(value: Any) -> Optional[Decimal]:
@@ -77,9 +78,20 @@ def build_plan_inputs(
     for row in on_hand:
         qty_on_hand[row['sku']] += to_decimal(row['qty']) or Decimal(0)
 
+    items = list(stock_items)
+    # Prefer Acumatica's available quantity when it was synced; otherwise use on hand
+    uses_available = any(item.get('qty_available') is not None for item in items)
+    if uses_available:
+        qty_on_hand = defaultdict(Decimal, {item['sku']: to_decimal(item.get('qty_available')) or Decimal(0)
+                                            for item in items})
+
     qty_on_order: dict[str, Decimal] = defaultdict(Decimal)
+    on_order_since: dict[str, dt.date] = {}
     for row in open_po_lines:
         qty_on_order[row['sku']] += to_decimal(row['qty_open']) or Decimal(0)
+        ordered = to_date(row.get('order_date'))
+        if ordered and (row['sku'] not in on_order_since or ordered < on_order_since[row['sku']]):
+            on_order_since[row['sku']] = ordered
 
     # Default vendor per item; if none is flagged default, use the first listed.
     item_vendor_for: dict[str, Row] = {}
@@ -96,7 +108,6 @@ def build_plan_inputs(
             if prev is None or to_date(row['order_date']) > to_date(prev['order_date']):
                 last_po[key] = row
 
-    items = list(stock_items)
     finished_goods = [
         FinishedGood(
             sku=item['sku'],
@@ -136,6 +147,7 @@ def build_plan_inputs(
             unit_cost=to_decimal(iv.get('last_cost')) if iv else None,
             last_po_qty=to_decimal(po['qty']) if po else None,
             last_po_date=to_date(po['order_date']) if po else None,
+            on_order_since=on_order_since.get(sku),
         ))
 
     bom_lines = [
@@ -147,4 +159,4 @@ def build_plan_inputs(
         for v in vendor_rows.values()
     ]
     vendor_infos.sort(key=lambda v: v.name)
-    return PlanInputs(components, bom_lines, finished_goods, vendor_infos, lead_time_sources)
+    return PlanInputs(components, bom_lines, finished_goods, vendor_infos, lead_time_sources, uses_available)

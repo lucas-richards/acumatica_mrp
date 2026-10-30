@@ -9,8 +9,9 @@ from planning.models import FLAG_LABELS
 
 CSV_COLUMNS = [
     'Vendor', 'Vendor ID', 'Component', 'Description', 'Status', 'Usage per month', 'Lead time (days)',
-    'Demand in lead time', 'On hand', 'On order', 'In FG stock', 'Months of supply', 'Target months',
-    'Order by', 'Last PO qty', 'Last PO date', 'Order qty', 'Months on hand at arrival', 'Unit cost',
+    'Demand in lead time', 'Available / on hand', 'On order', 'On order since', 'In FG stock', 'Months of supply',
+    'Reorder point (months)',
+    'Order by', 'Order qty', 'Last order qty', 'Last order date', 'Months left when an order arrives', 'Unit cost',
     'Estimated cost', 'Flags',
 ]
 
@@ -45,12 +46,13 @@ def write_plan_csv(out, result) -> None:
             writer.writerow([
                 _safe(vendor_name), _safe(vendor_id), _safe(c.sku), _safe(c.description), p.status.value,
                 _num(p.usage_per_month), c.lead_time_days if c.lead_time_days is not None else '',
-                _num(p.demand_in_lead_time), _num(c.on_hand), _num(c.on_order), _num(p.embedded_stock),
+                _num(p.demand_in_lead_time), _num(c.on_hand), _num(c.on_order),
+                c.on_order_since.isoformat() if c.on_order_since else '', _num(p.embedded_stock),
                 _num(p.months_of_supply, 1) if p.months_of_supply is not None else 'no usage',
                 _num(p.target_months, 1),
                 ('Now' if p.order_now else p.order_by_date.isoformat()) if p.order_by_date else '',
-                _num(c.last_po_qty), c.last_po_date.isoformat() if c.last_po_date else '',
                 _num(p.suggested_qty),
+                _num(c.last_po_qty), c.last_po_date.isoformat() if c.last_po_date else '',
                 _num(p.months_at_arrival, 1) if p.months_at_arrival is not None else '',
                 _num(c.unit_cost, 4), _num(p.estimated_cost),
                 '; '.join(sorted(FLAG_LABELS[f] for f in p.flags)),
@@ -58,6 +60,6 @@ def write_plan_csv(out, result) -> None:
         to_order = [p for p in rows if p.needs_order]
         total = sum((p.estimated_cost or Decimal(0) for p in to_order), Decimal(0))
         writer.writerow([_safe(vendor_name), _safe(vendor_id), 'SUBTOTAL', f'{len(to_order)} to order',
-                         *[''] * 15, _num(total), ''])
+                         *[''] * 16, _num(total), ''])
         writer.writerow([])
 

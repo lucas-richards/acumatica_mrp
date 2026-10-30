@@ -40,6 +40,8 @@ class StockItem(models.Model):
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     uom = models.CharField(max_length=20, blank=True)
     lot_size = models.DecimalField(**QTY, null=True, blank=True)
+    # Available quantity across warehouses (Acumatica's "Available"); null when not synced
+    qty_available = models.DecimalField(**QTY, null=True, blank=True)
 
     class Meta:
         ordering = ['sku']
@@ -64,6 +66,7 @@ class OpenPOLine(models.Model):
     vendor_id = models.CharField(max_length=30)
     qty_open = models.DecimalField(**QTY)
     promised_date = models.DateField(null=True, blank=True)
+    order_date = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'open PO line'
@@ -128,6 +131,7 @@ class SyncRun(models.Model):
     warnings = models.JSONField(default=list, blank=True)
     error = models.TextField(blank=True)
     triggered_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    pid = models.PositiveIntegerField(null=True, blank=True, help_text='Process running the sync')
 
     class Meta:
         ordering = ['-started_at']

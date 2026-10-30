@@ -3,6 +3,10 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
+import subprocess
+import sys
+from pathlib import Path
 from typing import Optional
 
 from django.conf import settings
@@ -38,14 +42,54 @@ def acumatica_configured() -> bool:
     return all(cfg[k] for k in ('BASE_URL', 'TENANT', 'USERNAME', 'PASSWORD'))
 
 
+def _process_alive(pid: Optional[int]) -> bool:
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:   # exists but belongs to another user
+        return True
+    return True
+
+
+def clear_dead_runs() -> None:
+    """Mark Acumatica runs as failed if their process is gone or they are too old."""
+    for run in models.SyncRun.objects.filter(source=models.SyncRun.ACUMATICA, status=models.SyncRun.RUNNING):
+        too_old = run.started_at < timezone.now() - STALE_AFTER
+        if too_old or (run.pid and not _process_alive(run.pid)):
+            loaders.fail_run(run, Exception('Interrupted: the sync process stopped before finishing.'))
+
+
+def running_sync() -> Optional[models.SyncRun]:
+    clear_dead_runs()
+    return models.SyncRun.objects.filter(source=models.SyncRun.ACUMATICA, status=models.SyncRun.RUNNING).first()
+
+
 def _start_run(user) -> models.SyncRun:
+    clear_dead_runs()
     with transaction.atomic():
         running = (models.SyncRun.objects.select_for_update()
-                   .filter(source=models.SyncRun.ACUMATICA, status=models.SyncRun.RUNNING,
-                           started_at__gte=timezone.now() - STALE_AFTER))
+                   .filter(source=models.SyncRun.ACUMATICA, status=models.SyncRun.RUNNING))
         if running.exists():
             raise SyncInProgress('A sync from Acumatica is already running.')
-        return models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA, triggered_by=user)
+        return models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA, triggered_by=user, pid=os.getpid())
+
+
+def start_background_sync(user) -> None:
+    """Run sync_acumatica in its own process so a long sync never runs inside a web request
+    (and survives a reload of the web process). Progress is read from SyncRun."""
+    if running_sync():
+        raise SyncInProgress('A sync from Acumatica is already running.')
+    log_dir = settings.BASE_DIR / 'logs'
+    log_dir.mkdir(exist_ok=True)
+    python = Path(sys.prefix) / 'bin' / 'python'
+    with open(log_dir / 'refresh.log', 'ab') as log:
+        subprocess.Popen(
+            [str(python), str(settings.BASE_DIR / 'manage.py'), 'sync_acumatica', '--user-id', str(user.pk)],
+            cwd=settings.BASE_DIR, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True,
+        )
 
 
 def run_sync(user=None, demand_sources: Optional[list[str]] = None, client=None) -> models.SyncRun:

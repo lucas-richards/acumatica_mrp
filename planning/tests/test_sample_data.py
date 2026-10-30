@@ -78,12 +78,31 @@ class SampleDataTests(unittest.TestCase):
             self.assertEqual(by_sku[sku].suggested_qty, D(0), sku)
             self.assertEqual(by_sku[sku].status, Status.COVERED, sku)
 
-    def test_months_at_arrival_cover_at_least_two_months(self):
+    def test_months_at_arrival_without_new_order(self):
         _, plans, by_sku = run(cover=2)
-        # COMP-2250: (200 supply + 500 ordered) / 110 per month - 4 months lead time = 2.36
-        self.assertEqual(round(by_sku['COMP-2250'].months_at_arrival, 2), D('2.36'))
+        # COMP-2250: 200 supply / 110 per month = 1.82 months - 4 months lead time -> runs out 2.18 months early
+        self.assertEqual(round(by_sku['COMP-2250'].months_at_arrival, 2), D('-2.18'))
         for p in plans:
-            self.assertGreaterEqual(p.months_at_arrival, 2, p.sku)
+            if p.status == Status.STOCKOUT_RISK:
+                self.assertLess(p.months_at_arrival, 0, p.sku)
+            if p.status == Status.COVERED:
+                self.assertGreaterEqual(p.months_at_arrival, 2, p.sku)
+
+    def test_available_quantity_replaces_on_hand(self):
+        data = json.loads(SAMPLE.read_text())
+        for item in data['stock_items']:
+            item['qty_available'] = 10 if item['sku'] == 'COMP-2250' else None
+        data['open_po_lines'][0]['order_date'] = '2026-09-01'
+        inputs = build_plan_inputs(
+            stock_items=data['stock_items'], on_hand=data['on_hand'], open_po_lines=data['open_po_lines'],
+            bom=data['bom'], vendors=data['vendors'], item_vendors=data['item_vendors'],
+            po_history=data['po_history'], fg_demand={})
+        self.assertTrue(inputs.uses_available)
+        by_sku = {c.sku: c for c in inputs.components}
+        self.assertEqual(by_sku['COMP-2250'].on_hand, D(10))        # available, not the 50 on hand
+        self.assertEqual(by_sku['COMP-2310'].on_hand, D(0))         # no available figure -> 0
+        self.assertEqual(by_sku['COMP-2250'].on_order_since, dt.date(2026, 9, 1))
+        self.assertFalse(load_inputs().uses_available)
 
     def test_order_by_dates(self):
         _, _, by_sku = run()

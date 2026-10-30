@@ -83,11 +83,12 @@ DATASETS: dict[str, tuple[type, dict[str, tuple[Any, bool]]]] = {
         'vendor_id': (_str, True), 'name': (_str, True), 'lead_time_days': (_int, False), 'email': (_opt_str, False)}),
     'stock_items': (models.StockItem, {
         'sku': (_str, True), 'description': (_opt_str, False), 'item_class': (_opt_str, False),
-        'kind': (_kind, True), 'uom': (_opt_str, False), 'lot_size': (_decimal, False)}),
+        'kind': (_kind, True), 'uom': (_opt_str, False), 'lot_size': (_decimal, False),
+        'qty_available': (_decimal, False)}),
     'on_hand': (models.OnHand, {'sku': (_str, True), 'warehouse': (_str, True), 'qty': (_decimal, True)}),
     'open_po_lines': (models.OpenPOLine, {
         'order_nbr': (_str, True), 'line_nbr': (_int, True), 'sku': (_str, True), 'vendor_id': (_str, True),
-        'qty_open': (_decimal, True), 'promised_date': (_date, False)}),
+        'qty_open': (_decimal, True), 'promised_date': (_date, False), 'order_date': (_date, False)}),
     'bom': (models.BomLine, {'fg_sku': (_str, True), 'component_sku': (_str, True), 'qty_per': (_decimal, True)}),
     'item_vendors': (models.ItemVendor, {
         'sku': (_str, True), 'vendor_id': (_str, True), 'is_default': (_bool, False),

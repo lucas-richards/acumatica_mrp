@@ -3,7 +3,7 @@ from unittest import mock
 
 import requests
 
-from acumatica.rest import (AcumaticaConfig, AcumaticaConfigError, AcumaticaPermissionError, AcumaticaRequestError,
+from acumatica.rest import (AcumaticaConfig, AcumaticaError, AcumaticaConfigError, AcumaticaPermissionError, AcumaticaRequestError,
                             RestClient, flatten)
 
 CONFIG = AcumaticaConfig(base_url='https://erp.example.com/', tenant='Westridge', username='svc', password='pw',
@@ -61,7 +61,7 @@ class ClientTests(unittest.TestCase):
         client, session = self.make([response(payload=[])])
         with client as c:
             c.fetch('manufacturing', 'BillOfMaterial')
-        self.assertFalse(session.put.called)
+        self.assertFalse(session.put.called)   # entities are only read with GET
         self.assertFalse(session.delete.called)
         self.assertEqual(session.post.call_count, 2)   # login + logout only
 
@@ -71,6 +71,17 @@ class ClientTests(unittest.TestCase):
             with client as c:
                 c.fetch('default', 'Vendor')
         self.assertTrue(session.post.call_args_list[-1].args[0].endswith('/entity/auth/logout'))
+
+    def test_inquiry_only_for_allowed_screens(self):
+        client, session = self.make([])
+        session.put.return_value = response(payload={'Results': [wrap(InventoryID='A', QtyAvailable=5)]})
+        with client as c:
+            result = c.inquiry('default', 'InventoryQuantityAvailable', {'LastModifiedDateTime': '1900-01-01'})
+            with self.assertRaisesRegex(AcumaticaError, 'not an allowed read-only inquiry'):
+                c.inquiry('default', 'StockItem', {})
+        self.assertEqual(result, {'Results': [{'InventoryID': 'A', 'QtyAvailable': 5}]})
+        self.assertEqual(session.put.call_count, 1)
+        self.assertEqual(session.put.call_args.kwargs['json'], {'LastModifiedDateTime': {'value': '1900-01-01'}})
 
     def test_permission_error(self):
         client, _ = self.make([response(status=403, payload={'message': 'You have insufficient rights'})])

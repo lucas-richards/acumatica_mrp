@@ -16,6 +16,7 @@ The planner reads Acumatica's own records through the **contract-based REST API*
 | Purchase orders | `PurchaseOrder` | Purchase Orders (PO301000) |
 | Shipments (default demand source) | `Shipment` | Shipments (SO302000) |
 | Open sales orders (optional demand source) | `SalesOrder` | Sales Orders (SO301000) |
+| Available quantity | `InventoryQuantityAvailable` inquiry | Inventory Quantity Available (SO640590): **not accessible yet**; until then the planner uses quantity on hand |
 
 The Forecast screen (AM202000) is not available to this user, so the **forecast** demand source can't be used with Acumatica yet.
 
@@ -42,11 +43,13 @@ Only items that appear in a BOM are kept.
 - **Lot size** = Lot Size converted to the base unit. Blank or 0 means no rounding.
 - The default vendor is the line marked Default. If an item has both an all-warehouse line and warehouse-specific lines for the same vendor, the all-warehouse line wins.
 
+**Available quantity.** Read from the Inventory Quantity Available inquiry: one total per item across warehouses, in the base unit. Inquiries are run with a PUT of their filter values, which is how Acumatica runs an inquiry; nothing is changed. Until the user has access to that screen, the planner uses quantity on hand and the page says so.
+
 **Vendors.** Active vendors only, with their Lead Time (days).
 
 **Purchase orders.** Type **Normal** only; drop-ship POs never add stock. Only lines of type "Goods for IN / Inventory / Manufacturing / SO" are used.
-- *On order*: open POs (status Open, Pending Printing or Pending Email), lines not completed or cancelled. Open quantity is ordered − received, in base units.
-- *History* (for "Last PO" and "Match last PO"): lines from the last 24 months, excluding cancelled ones.
+- *On order*: open POs (status Open, Pending Printing or Pending Email), lines not completed or cancelled. Open quantity is ordered − received, in base units. The page shows the date of the oldest open PO as "since".
+- *History* (for "Last order"): lines from the last 24 months, excluding cancelled ones.
 
 **Demand for finished goods**, chosen on the settings:
 - *Trailing shipments* (default): shipments of type Shipment, operation Issue and status Confirmed or Completed, from the last 13 months. The planner averages the last 6 full months.

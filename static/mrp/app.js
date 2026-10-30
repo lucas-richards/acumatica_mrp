@@ -22,16 +22,13 @@ document.addEventListener('click', function (event) {
   row.hidden = open;
 });
 
-// "Refresh from Acumatica" is a normal form post that can take a couple of minutes:
-// show the loading overlay with an explanation until the new page arrives.
+// "Refresh from Acumatica" starts a background sync; show the overlay until the page
+// comes back with the "Refreshing…" banner, which then tracks progress.
 document.addEventListener('submit', function (event) {
   var form = event.target.closest('[data-refresh-form]');
   var overlay = document.getElementById('plan-loading');
   if (!form || !overlay) return;
-  overlay.querySelector('[data-loading-text]').textContent = 'Refreshing from Acumatica';
-  var note = overlay.querySelector('[data-loading-note]');
-  note.textContent = 'This usually takes 1 to 2 minutes. Please keep this page open.';
-  note.hidden = false;
+  overlay.querySelector('[data-loading-text]').textContent = 'Starting refresh from Acumatica';
   overlay.classList.add('is-active');
   var button = form.querySelector('button[type="submit"]');
   if (button) {
