@@ -1,0 +1,975 @@
+{
+ "anchor_date": "2026-10-29",
+ "_comment": "Sample data for seed_demo and the import format reference. Dates are shifted to today when seeded.",
+ "vendors": [
+  {
+   "vendor_id": "PACDRV",
+   "name": "Pacific Drives",
+   "lead_time_days": 120,
+   "email": "orders@pacificdrives.example"
+  },
+  {
+   "vendor_id": "CASCAB",
+   "name": "Cascade Cable Co",
+   "lead_time_days": 120,
+   "email": "sales@cascadecable.example"
+  },
+  {
+   "vendor_id": "NWMETL",
+   "name": "Northwest Metals",
+   "lead_time_days": 150,
+   "email": "orders@nwmetals.example"
+  },
+  {
+   "vendor_id": "INLFAS",
+   "name": "Inland Fasteners",
+   "lead_time_days": 14,
+   "email": "orders@inlandfasteners.example"
+  },
+  {
+   "vendor_id": "SUMSEA",
+   "name": "Summit Seals",
+   "lead_time_days": 14,
+   "email": "sales@summitseals.example"
+  }
+ ],
+ "stock_items": [
+  {
+   "sku": "FG-100",
+   "description": "Conveyor Drive Unit",
+   "item_class": "FINISHED",
+   "kind": "finished_good",
+   "uom": "EA",
+   "lot_size": 1
+  },
+  {
+   "sku": "FG-200",
+   "description": "Pump Assembly",
+   "item_class": "FINISHED",
+   "kind": "finished_good",
+   "uom": "EA",
+   "lot_size": 1
+  },
+  {
+   "sku": "FG-300",
+   "description": "Control Cabinet",
+   "item_class": "FINISHED",
+   "kind": "finished_good",
+   "uom": "EA",
+   "lot_size": 1
+  },
+  {
+   "sku": "FG-400",
+   "description": "Mixer Gearbox",
+   "item_class": "FINISHED",
+   "kind": "finished_good",
+   "uom": "EA",
+   "lot_size": 1
+  },
+  {
+   "sku": "FG-500",
+   "description": "Valve Actuator",
+   "item_class": "FINISHED",
+   "kind": "finished_good",
+   "uom": "EA",
+   "lot_size": 1
+  },
+  {
+   "sku": "COMP-2250",
+   "description": "Bearing 6204",
+   "item_class": "BEARINGS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 50
+  },
+  {
+   "sku": "COMP-2310",
+   "description": "Gear motor 0.5 HP",
+   "item_class": "MOTORS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 10
+  },
+  {
+   "sku": "COMP-4408",
+   "description": "Cable harness 2 m",
+   "item_class": "CABLES",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 25
+  },
+  {
+   "sku": "COMP-4410",
+   "description": "Sensor cable M12",
+   "item_class": "CABLES",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 25
+  },
+  {
+   "sku": "COMP-3105",
+   "description": "Steel mounting bracket",
+   "item_class": "METALS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 50
+  },
+  {
+   "sku": "COMP-3120",
+   "description": "Aluminum plate 6 mm",
+   "item_class": "METALS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 10
+  },
+  {
+   "sku": "COMP-3150",
+   "description": "Drive shaft 20 mm",
+   "item_class": "METALS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 10
+  },
+  {
+   "sku": "COMP-5010",
+   "description": "Hex bolt kit M8",
+   "item_class": "FASTENERS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 100
+  },
+  {
+   "sku": "COMP-5020",
+   "description": "Flat washer M8",
+   "item_class": "FASTENERS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 100
+  },
+  {
+   "sku": "COMP-6001",
+   "description": "O-ring 40 mm",
+   "item_class": "SEALS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 100
+  },
+  {
+   "sku": "COMP-6010",
+   "description": "Shaft seal 20 mm",
+   "item_class": "SEALS",
+   "kind": "component",
+   "uom": "EA",
+   "lot_size": 10
+  }
+ ],
+ "on_hand": [
+  {
+   "sku": "FG-100",
+   "warehouse": "MAIN",
+   "qty": 45
+  },
+  {
+   "sku": "FG-200",
+   "warehouse": "MAIN",
+   "qty": 20
+  },
+  {
+   "sku": "FG-300",
+   "warehouse": "MAIN",
+   "qty": 10
+  },
+  {
+   "sku": "FG-400",
+   "warehouse": "MAIN",
+   "qty": 30
+  },
+  {
+   "sku": "FG-500",
+   "warehouse": "MAIN",
+   "qty": 25
+  },
+  {
+   "sku": "COMP-2250",
+   "warehouse": "MAIN",
+   "qty": 50
+  },
+  {
+   "sku": "COMP-2310",
+   "warehouse": "MAIN",
+   "qty": 180
+  },
+  {
+   "sku": "COMP-2310",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-4408",
+   "warehouse": "MAIN",
+   "qty": 60
+  },
+  {
+   "sku": "COMP-4410",
+   "warehouse": "MAIN",
+   "qty": 120
+  },
+  {
+   "sku": "COMP-4410",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-3105",
+   "warehouse": "MAIN",
+   "qty": 645
+  },
+  {
+   "sku": "COMP-3105",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-3120",
+   "warehouse": "MAIN",
+   "qty": 230
+  },
+  {
+   "sku": "COMP-3120",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-3150",
+   "warehouse": "MAIN",
+   "qty": 140
+  },
+  {
+   "sku": "COMP-3150",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-5010",
+   "warehouse": "MAIN",
+   "qty": 220
+  },
+  {
+   "sku": "COMP-5010",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-5020",
+   "warehouse": "MAIN",
+   "qty": 280
+  },
+  {
+   "sku": "COMP-5020",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-6001",
+   "warehouse": "MAIN",
+   "qty": 210
+  },
+  {
+   "sku": "COMP-6001",
+   "warehouse": "WEST",
+   "qty": 20
+  },
+  {
+   "sku": "COMP-6010",
+   "warehouse": "MAIN",
+   "qty": 80
+  }
+ ],
+ "open_po_lines": [
+  {
+   "order_nbr": "PO004011",
+   "line_nbr": 1,
+   "sku": "COMP-2250",
+   "vendor_id": "PACDRV",
+   "qty_open": 30,
+   "promised_date": "2026-11-20"
+  },
+  {
+   "order_nbr": "PO004012",
+   "line_nbr": 1,
+   "sku": "COMP-2310",
+   "vendor_id": "PACDRV",
+   "qty_open": 50,
+   "promised_date": "2026-12-05"
+  },
+  {
+   "order_nbr": "PO004013",
+   "line_nbr": 1,
+   "sku": "COMP-3105",
+   "vendor_id": "NWMETL",
+   "qty_open": 200,
+   "promised_date": "2026-11-12"
+  },
+  {
+   "order_nbr": "PO004014",
+   "line_nbr": 1,
+   "sku": "COMP-3150",
+   "vendor_id": "NWMETL",
+   "qty_open": 60,
+   "promised_date": "2026-11-30"
+  }
+ ],
+ "bom": [
+  {
+   "fg_sku": "FG-100",
+   "component_sku": "COMP-2250",
+   "qty_per": 2
+  },
+  {
+   "fg_sku": "FG-400",
+   "component_sku": "COMP-2250",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-100",
+   "component_sku": "COMP-2310",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-400",
+   "component_sku": "COMP-2310",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-300",
+   "component_sku": "COMP-4408",
+   "qty_per": 2
+  },
+  {
+   "fg_sku": "FG-500",
+   "component_sku": "COMP-4408",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-200",
+   "component_sku": "COMP-4410",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-100",
+   "component_sku": "COMP-3105",
+   "qty_per": 4
+  },
+  {
+   "fg_sku": "FG-200",
+   "component_sku": "COMP-3105",
+   "qty_per": 2
+  },
+  {
+   "fg_sku": "FG-300",
+   "component_sku": "COMP-3120",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-500",
+   "component_sku": "COMP-3120",
+   "qty_per": 2
+  },
+  {
+   "fg_sku": "FG-400",
+   "component_sku": "COMP-3150",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-200",
+   "component_sku": "COMP-5010",
+   "qty_per": 6
+  },
+  {
+   "fg_sku": "FG-500",
+   "component_sku": "COMP-5010",
+   "qty_per": 4
+  },
+  {
+   "fg_sku": "FG-100",
+   "component_sku": "COMP-5020",
+   "qty_per": 4
+  },
+  {
+   "fg_sku": "FG-200",
+   "component_sku": "COMP-6001",
+   "qty_per": 2
+  },
+  {
+   "fg_sku": "FG-400",
+   "component_sku": "COMP-6001",
+   "qty_per": 1
+  },
+  {
+   "fg_sku": "FG-400",
+   "component_sku": "COMP-6010",
+   "qty_per": 1
+  }
+ ],
+ "item_vendors": [
+  {
+   "sku": "COMP-2250",
+   "vendor_id": "PACDRV",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "4.20"
+  },
+  {
+   "sku": "COMP-2310",
+   "vendor_id": "PACDRV",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "38.50"
+  },
+  {
+   "sku": "COMP-4408",
+   "vendor_id": "CASCAB",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "12.00"
+  },
+  {
+   "sku": "COMP-4410",
+   "vendor_id": "CASCAB",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "6.80"
+  },
+  {
+   "sku": "COMP-3105",
+   "vendor_id": "NWMETL",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "3.25"
+  },
+  {
+   "sku": "COMP-3120",
+   "vendor_id": "NWMETL",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "9.25"
+  },
+  {
+   "sku": "COMP-3150",
+   "vendor_id": "NWMETL",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "14.00"
+  },
+  {
+   "sku": "COMP-5010",
+   "vendor_id": "INLFAS",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "1.45"
+  },
+  {
+   "sku": "COMP-5020",
+   "vendor_id": "INLFAS",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "0.12"
+  },
+  {
+   "sku": "COMP-6001",
+   "vendor_id": "SUMSEA",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "0.85"
+  },
+  {
+   "sku": "COMP-6010",
+   "vendor_id": "SUMSEA",
+   "is_default": true,
+   "lead_time_days": null,
+   "last_cost": "3.40"
+  }
+ ],
+ "po_history": [
+  {
+   "sku": "COMP-2250",
+   "vendor_id": "PACDRV",
+   "order_nbr": "PO004000",
+   "order_date": "2026-05-12",
+   "qty": 600,
+   "unit_cost": "4.20"
+  },
+  {
+   "sku": "COMP-2310",
+   "vendor_id": "PACDRV",
+   "order_nbr": "PO004001",
+   "order_date": "2026-06-03",
+   "qty": 120,
+   "unit_cost": "38.50"
+  },
+  {
+   "sku": "COMP-4408",
+   "vendor_id": "CASCAB",
+   "order_nbr": "PO004002",
+   "order_date": "2026-04-21",
+   "qty": 150,
+   "unit_cost": "12.00"
+  },
+  {
+   "sku": "COMP-4410",
+   "vendor_id": "CASCAB",
+   "order_nbr": "PO004003",
+   "order_date": "2026-07-08",
+   "qty": 100,
+   "unit_cost": "6.80"
+  },
+  {
+   "sku": "COMP-3105",
+   "vendor_id": "NWMETL",
+   "order_nbr": "PO004004",
+   "order_date": "2026-05-28",
+   "qty": 500,
+   "unit_cost": "3.25"
+  },
+  {
+   "sku": "COMP-3120",
+   "vendor_id": "NWMETL",
+   "order_nbr": "PO004005",
+   "order_date": "2026-06-15",
+   "qty": 50,
+   "unit_cost": "9.25"
+  },
+  {
+   "sku": "COMP-3150",
+   "vendor_id": "NWMETL",
+   "order_nbr": "PO004006",
+   "order_date": "2026-08-04",
+   "qty": 80,
+   "unit_cost": "14.00"
+  },
+  {
+   "sku": "COMP-5010",
+   "vendor_id": "INLFAS",
+   "order_nbr": "PO004007",
+   "order_date": "2026-09-02",
+   "qty": 500,
+   "unit_cost": "1.45"
+  },
+  {
+   "sku": "COMP-5020",
+   "vendor_id": "INLFAS",
+   "order_nbr": "PO004008",
+   "order_date": "2026-09-10",
+   "qty": 1000,
+   "unit_cost": "0.12"
+  },
+  {
+   "sku": "COMP-6001",
+   "vendor_id": "SUMSEA",
+   "order_nbr": "PO004009",
+   "order_date": "2026-09-18",
+   "qty": 400,
+   "unit_cost": "0.85"
+  },
+  {
+   "sku": "COMP-6010",
+   "vendor_id": "SUMSEA",
+   "order_nbr": "PO004010",
+   "order_date": "2026-09-25",
+   "qty": 60,
+   "unit_cost": "3.40"
+  }
+ ],
+ "demand": [
+  {
+   "sku": "FG-100",
+   "source": "trailing_shipments",
+   "month": "2026-04-01",
+   "qty": 38
+  },
+  {
+   "sku": "FG-100",
+   "source": "trailing_shipments",
+   "month": "2026-05-01",
+   "qty": 42
+  },
+  {
+   "sku": "FG-100",
+   "source": "trailing_shipments",
+   "month": "2026-06-01",
+   "qty": 40
+  },
+  {
+   "sku": "FG-100",
+   "source": "trailing_shipments",
+   "month": "2026-07-01",
+   "qty": 41
+  },
+  {
+   "sku": "FG-100",
+   "source": "trailing_shipments",
+   "month": "2026-08-01",
+   "qty": 39
+  },
+  {
+   "sku": "FG-100",
+   "source": "trailing_shipments",
+   "month": "2026-09-01",
+   "qty": 40
+  },
+  {
+   "sku": "FG-100",
+   "source": "trailing_shipments",
+   "month": "2026-10-01",
+   "qty": 36
+  },
+  {
+   "sku": "FG-100",
+   "source": "open_sales_orders",
+   "month": "2026-10-01",
+   "qty": 44
+  },
+  {
+   "sku": "FG-100",
+   "source": "forecast",
+   "month": "2026-10-01",
+   "qty": 42
+  },
+  {
+   "sku": "FG-100",
+   "source": "open_sales_orders",
+   "month": "2026-11-01",
+   "qty": 32
+  },
+  {
+   "sku": "FG-100",
+   "source": "forecast",
+   "month": "2026-11-01",
+   "qty": 42
+  },
+  {
+   "sku": "FG-100",
+   "source": "open_sales_orders",
+   "month": "2026-12-01",
+   "qty": 20
+  },
+  {
+   "sku": "FG-100",
+   "source": "forecast",
+   "month": "2026-12-01",
+   "qty": 42
+  },
+  {
+   "sku": "FG-200",
+   "source": "trailing_shipments",
+   "month": "2026-04-01",
+   "qty": 24
+  },
+  {
+   "sku": "FG-200",
+   "source": "trailing_shipments",
+   "month": "2026-05-01",
+   "qty": 26
+  },
+  {
+   "sku": "FG-200",
+   "source": "trailing_shipments",
+   "month": "2026-06-01",
+   "qty": 25
+  },
+  {
+   "sku": "FG-200",
+   "source": "trailing_shipments",
+   "month": "2026-07-01",
+   "qty": 25
+  },
+  {
+   "sku": "FG-200",
+   "source": "trailing_shipments",
+   "month": "2026-08-01",
+   "qty": 23
+  },
+  {
+   "sku": "FG-200",
+   "source": "trailing_shipments",
+   "month": "2026-09-01",
+   "qty": 27
+  },
+  {
+   "sku": "FG-200",
+   "source": "trailing_shipments",
+   "month": "2026-10-01",
+   "qty": 22
+  },
+  {
+   "sku": "FG-200",
+   "source": "open_sales_orders",
+   "month": "2026-10-01",
+   "qty": 28
+  },
+  {
+   "sku": "FG-200",
+   "source": "forecast",
+   "month": "2026-10-01",
+   "qty": 26
+  },
+  {
+   "sku": "FG-200",
+   "source": "open_sales_orders",
+   "month": "2026-11-01",
+   "qty": 20
+  },
+  {
+   "sku": "FG-200",
+   "source": "forecast",
+   "month": "2026-11-01",
+   "qty": 26
+  },
+  {
+   "sku": "FG-200",
+   "source": "open_sales_orders",
+   "month": "2026-12-01",
+   "qty": 12
+  },
+  {
+   "sku": "FG-200",
+   "source": "forecast",
+   "month": "2026-12-01",
+   "qty": 26
+  },
+  {
+   "sku": "FG-300",
+   "source": "trailing_shipments",
+   "month": "2026-04-01",
+   "qty": 11
+  },
+  {
+   "sku": "FG-300",
+   "source": "trailing_shipments",
+   "month": "2026-05-01",
+   "qty": 13
+  },
+  {
+   "sku": "FG-300",
+   "source": "trailing_shipments",
+   "month": "2026-06-01",
+   "qty": 12
+  },
+  {
+   "sku": "FG-300",
+   "source": "trailing_shipments",
+   "month": "2026-07-01",
+   "qty": 12
+  },
+  {
+   "sku": "FG-300",
+   "source": "trailing_shipments",
+   "month": "2026-08-01",
+   "qty": 12
+  },
+  {
+   "sku": "FG-300",
+   "source": "trailing_shipments",
+   "month": "2026-09-01",
+   "qty": 12
+  },
+  {
+   "sku": "FG-300",
+   "source": "trailing_shipments",
+   "month": "2026-10-01",
+   "qty": 11
+  },
+  {
+   "sku": "FG-300",
+   "source": "open_sales_orders",
+   "month": "2026-10-01",
+   "qty": 13
+  },
+  {
+   "sku": "FG-300",
+   "source": "forecast",
+   "month": "2026-10-01",
+   "qty": 13
+  },
+  {
+   "sku": "FG-300",
+   "source": "open_sales_orders",
+   "month": "2026-11-01",
+   "qty": 10
+  },
+  {
+   "sku": "FG-300",
+   "source": "forecast",
+   "month": "2026-11-01",
+   "qty": 13
+  },
+  {
+   "sku": "FG-300",
+   "source": "open_sales_orders",
+   "month": "2026-12-01",
+   "qty": 6
+  },
+  {
+   "sku": "FG-300",
+   "source": "forecast",
+   "month": "2026-12-01",
+   "qty": 13
+  },
+  {
+   "sku": "FG-400",
+   "source": "trailing_shipments",
+   "month": "2026-04-01",
+   "qty": 28
+  },
+  {
+   "sku": "FG-400",
+   "source": "trailing_shipments",
+   "month": "2026-05-01",
+   "qty": 31
+  },
+  {
+   "sku": "FG-400",
+   "source": "trailing_shipments",
+   "month": "2026-06-01",
+   "qty": 30
+  },
+  {
+   "sku": "FG-400",
+   "source": "trailing_shipments",
+   "month": "2026-07-01",
+   "qty": 32
+  },
+  {
+   "sku": "FG-400",
+   "source": "trailing_shipments",
+   "month": "2026-08-01",
+   "qty": 29
+  },
+  {
+   "sku": "FG-400",
+   "source": "trailing_shipments",
+   "month": "2026-09-01",
+   "qty": 30
+  },
+  {
+   "sku": "FG-400",
+   "source": "trailing_shipments",
+   "month": "2026-10-01",
+   "qty": 27
+  },
+  {
+   "sku": "FG-400",
+   "source": "open_sales_orders",
+   "month": "2026-10-01",
+   "qty": 33
+  },
+  {
+   "sku": "FG-400",
+   "source": "forecast",
+   "month": "2026-10-01",
+   "qty": 32
+  },
+  {
+   "sku": "FG-400",
+   "source": "open_sales_orders",
+   "month": "2026-11-01",
+   "qty": 24
+  },
+  {
+   "sku": "FG-400",
+   "source": "forecast",
+   "month": "2026-11-01",
+   "qty": 32
+  },
+  {
+   "sku": "FG-400",
+   "source": "open_sales_orders",
+   "month": "2026-12-01",
+   "qty": 15
+  },
+  {
+   "sku": "FG-400",
+   "source": "forecast",
+   "month": "2026-12-01",
+   "qty": 32
+  },
+  {
+   "sku": "FG-500",
+   "source": "trailing_shipments",
+   "month": "2026-04-01",
+   "qty": 19
+  },
+  {
+   "sku": "FG-500",
+   "source": "trailing_shipments",
+   "month": "2026-05-01",
+   "qty": 21
+  },
+  {
+   "sku": "FG-500",
+   "source": "trailing_shipments",
+   "month": "2026-06-01",
+   "qty": 20
+  },
+  {
+   "sku": "FG-500",
+   "source": "trailing_shipments",
+   "month": "2026-07-01",
+   "qty": 20
+  },
+  {
+   "sku": "FG-500",
+   "source": "trailing_shipments",
+   "month": "2026-08-01",
+   "qty": 22
+  },
+  {
+   "sku": "FG-500",
+   "source": "trailing_shipments",
+   "month": "2026-09-01",
+   "qty": 18
+  },
+  {
+   "sku": "FG-500",
+   "source": "trailing_shipments",
+   "month": "2026-10-01",
+   "qty": 18
+  },
+  {
+   "sku": "FG-500",
+   "source": "open_sales_orders",
+   "month": "2026-10-01",
+   "qty": 22
+  },
+  {
+   "sku": "FG-500",
+   "source": "forecast",
+   "month": "2026-10-01",
+   "qty": 21
+  },
+  {
+   "sku": "FG-500",
+   "source": "open_sales_orders",
+   "month": "2026-11-01",
+   "qty": 16
+  },
+  {
+   "sku": "FG-500",
+   "source": "forecast",
+   "month": "2026-11-01",
+   "qty": 21
+  },
+  {
+   "sku": "FG-500",
+   "source": "open_sales_orders",
+   "month": "2026-12-01",
+   "qty": 10
+  },
+  {
+   "sku": "FG-500",
+   "source": "forecast",
+   "month": "2026-12-01",
+   "qty": 21
+  }
+ ]
+}
