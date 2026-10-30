@@ -4,7 +4,7 @@ from decimal import Decimal as D
 
 from acumatica import entities
 from acumatica.entities import FetchOptions, Units, explode, fetch_all
-from acumatica.rest import AcumaticaError, AcumaticaPermissionError
+from acumatica.rest import AcumaticaError, AcumaticaPermissionError, AcumaticaRequestError
 
 TODAY = dt.date(2026, 10, 30)
 
@@ -23,11 +23,11 @@ class FakeClient:
             raise AcumaticaPermissionError(f'{entity}: You have insufficient rights', 403)
         return self.records.get(entity, [])
 
-    def inquiry(self, endpoint, entity, parameters, expand='Results'):
-        self.calls.append((endpoint, entity, str(parameters)))
-        if entity in self.deny or entity not in self.records:
-            raise AcumaticaPermissionError(f'{entity}: You have insufficient rights', 403)
-        return self.records[entity]
+    def generic_inquiry(self, name, select=None):
+        self.calls.append(('odata', name, ''))
+        if name in self.deny or name not in self.records:
+            raise AcumaticaRequestError(f"GI {name!r} not found (is it exposed via OData?)", 404)
+        return self.records[name]
 
 
 def item(sku, base='EACH', conversions=(), warehouses=(), vendors=(), last_cost=None, **extra):
@@ -226,21 +226,25 @@ class FetchAllTests(unittest.TestCase):
         self.assertNotIn('GONE', {r['component_sku'] for r in result.data['bom']})
         self.assertTrue(any('GONE' in w for w in result.warnings))
 
-    def test_available_quantity_when_accessible(self):
+    def test_available_quantity_from_gi(self):
         records = base_records()
-        records['InventoryQuantityAvailable'] = {'Results': [{'InventoryID': 'C-BOLT', 'QtyAvailable': 120},
-                                                             {'InventoryID': 'FG-1', 'QtyAvailable': 4}]}
+        records['LR-Available Qty'] = [
+            {'SKU': 'C-BOLT  ', 'Warehouse': 'MAIN ', 'Available': '120.000000'},
+            {'SKU': 'C-BOLT  ', 'Warehouse': 'MAIN ', 'Available': '120.000000'},   # repeated join row
+            {'SKU': 'C-BOLT', 'Warehouse': 'WEST', 'Available': '-20.000000'},       # back-ordered
+            {'SKU': 'FG-1', 'Warehouse': 'MAIN', 'Available': '4'},
+        ]
         result, _ = run(records)
         avail = {r['sku']: r['qty_available'] for r in result.data['stock_items']}
-        self.assertEqual(avail['C-BOLT'], D(120))
+        self.assertEqual(avail['C-BOLT'], D(100))
         self.assertEqual(avail['FG-1'], D(4))
         self.assertEqual(avail['C-PLATE'], D(0))
-        self.assertFalse(any('SO640590' in w for w in result.warnings))
+        self.assertFalse(any('Available quantity' in w for w in result.warnings))
 
-    def test_available_quantity_without_access_falls_back(self):
+    def test_available_quantity_unreadable_falls_back(self):
         result, _ = run()
         self.assertTrue(all(r['qty_available'] is None for r in result.data['stock_items']))
-        self.assertTrue(any('SO640590' in w for w in result.warnings))
+        self.assertTrue(any("GI 'LR-Available Qty'" in w for w in result.warnings))
 
     def test_open_po_order_date(self):
         result, _ = run()

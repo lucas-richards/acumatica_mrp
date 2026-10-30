@@ -69,6 +69,7 @@ All configuration comes from the environment or from `.env` in the project root.
 | `ACUMATICA_BASE_URL`, `ACUMATICA_TENANT`, `ACUMATICA_BRANCH`, `ACUMATICA_USERNAME`, `ACUMATICA_PASSWORD` | Read-only REST API login |
 | `ACUMATICA_ENDPOINT`, `ACUMATICA_MANUFACTURING_ENDPOINT` | REST endpoints (default `Default/24.200.001`, `MANUFACTURING/24.200.001`) |
 | `ACUMATICA_SALES_ORDER_TYPES` | Sales order types counted as demand (default `SO`) |
+| `ACUMATICA_AVAILABLE_GI` | Generic Inquiry with the available quantity (default `LR-Available Qty`) |
 | `EMAIL_HOST` (`smtp.fastmail.com`), `EMAIL_PORT` (465), `EMAIL_USE_SSL`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Fastmail SMTP with an app-specific password |
 | `DEFAULT_FROM_EMAIL` | Sender address |
 | `MRP_REMINDER_TO` | Comma-separated recipients of vendor reminders |

@@ -1,6 +1,6 @@
 # How the MRP planner reads Acumatica
 
-The planner reads Acumatica's own records through the **contract-based REST API**. It never writes: it logs in, makes GET requests, and logs out. No Generic Inquiries are needed.
+The planner reads Acumatica's own records through the **contract-based REST API**, plus one existing Generic Inquiry (LR-Available Qty) for the available quantity. It never writes: it logs in, makes GET requests, and logs out.
 
 - Endpoints: `Default/24.200.001` and `MANUFACTURING/24.200.001`. You can change these with `ACUMATICA_ENDPOINT` and `ACUMATICA_MANUFACTURING_ENDPOINT`.
 - Login: the user in `.env` (`ACUMATICA_USERNAME` / `ACUMATICA_PASSWORD`), tenant `ACUMATICA_TENANT`, branch `ACUMATICA_BRANCH`.
@@ -16,7 +16,7 @@ The planner reads Acumatica's own records through the **contract-based REST API*
 | Purchase orders | `PurchaseOrder` | Purchase Orders (PO301000) |
 | Shipments (default demand source) | `Shipment` | Shipments (SO302000) |
 | Open sales orders (optional demand source) | `SalesOrder` | Sales Orders (SO301000) |
-| Available quantity | `InventoryQuantityAvailable` inquiry | Inventory Quantity Available (SO640590): **not accessible yet**; until then the planner uses quantity on hand |
+| Available quantity | Generic Inquiry `LR-Available Qty` (OData) | that GI |
 
 The Forecast screen (AM202000) is not available to this user, so the **forecast** demand source can't be used with Acumatica yet.
 
@@ -43,7 +43,7 @@ Only items that appear in a BOM are kept.
 - **Lot size** = Lot Size converted to the base unit. Blank or 0 means no rounding.
 - The default vendor is the line marked Default. If an item has both an all-warehouse line and warehouse-specific lines for the same vendor, the all-warehouse line wins.
 
-**Available quantity.** Read from the Inventory Quantity Available inquiry: one total per item across warehouses, in the base unit. Inquiries are run with a PUT of their filter values, which is how Acumatica runs an inquiry; nothing is changed. Until the user has access to that screen, the planner uses quantity on hand and the page says so.
+**Available quantity.** Read from the existing Generic Inquiry **LR-Available Qty** over OData (columns `SKU`, `Warehouse`, `Available`; change the GI name with `ACUMATICA_AVAILABLE_GI`). Repeated item/warehouse rows are counted once and warehouses are added up. Available can be negative (back-ordered). If the GI can't be read, the planner uses quantity on hand and the page says so.
 
 **Vendors.** Active vendors only, with their Lead Time (days).
 

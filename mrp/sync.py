@@ -97,7 +97,8 @@ def run_sync(user=None, demand_sources: Optional[list[str]] = None, client=None)
     if demand_sources is None:
         demand_sources = [models.PlanSettings.load().demand_source]
     options = FetchOptions(today=services.today(), demand_sources=demand_sources,
-                           sales_order_types=tuple(settings.ACUMATICA['SALES_ORDER_TYPES']))
+                           sales_order_types=tuple(settings.ACUMATICA['SALES_ORDER_TYPES']),
+                           available_gi=settings.ACUMATICA['AVAILABLE_GI'])
     run = _start_run(user)
     try:
         if client is None:

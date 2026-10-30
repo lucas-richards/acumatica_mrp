@@ -89,7 +89,10 @@ def order_by_date(
     return today + dt.timedelta(days=whole_days)
 
 
-def plan_status(mos: Optional[Decimal], lt_months: Decimal, target: Decimal) -> Status:
+def plan_status(mos: Optional[Decimal], lt_months: Decimal, target: Decimal,
+                supply: Decimal = ZERO) -> Status:
+    if supply < 0:   # already short (e.g. negative available), whatever the usage
+        return Status.STOCKOUT_RISK
     if mos is None:
         return Status.COVERED
     if mos < lt_months:
@@ -124,7 +127,8 @@ def build_usage(
             fg_on_hand=fg.on_hand,
             component_per_month=per_month,
             demand_in_lead_time=per_month * lt_months,
-            embedded_qty=fg.on_hand * line.qty_per,
+            # A back-ordered finished good (negative stock) contains no components
+            embedded_qty=max(fg.on_hand, ZERO) * line.qty_per,
         ))
     rows.sort(key=lambda r: (-r.component_per_month, r.fg_sku))
     return rows, flags
@@ -175,7 +179,7 @@ def plan_component(
         estimated_cost = suggested * component.unit_cost
 
     obd = order_by_date(today, supply, usage, component.lead_time_days)
-    status = plan_status(mos, lt_months, target)
+    status = plan_status(mos, lt_months, target, supply)
 
     return ComponentPlan(
         component=component,

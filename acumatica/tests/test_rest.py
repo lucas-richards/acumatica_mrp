@@ -3,7 +3,7 @@ from unittest import mock
 
 import requests
 
-from acumatica.rest import (AcumaticaConfig, AcumaticaError, AcumaticaConfigError, AcumaticaPermissionError, AcumaticaRequestError,
+from acumatica.rest import (AcumaticaConfig, AcumaticaConfigError, AcumaticaPermissionError, AcumaticaRequestError,
                             RestClient, flatten)
 
 CONFIG = AcumaticaConfig(base_url='https://erp.example.com/', tenant='Westridge', username='svc', password='pw',
@@ -61,7 +61,7 @@ class ClientTests(unittest.TestCase):
         client, session = self.make([response(payload=[])])
         with client as c:
             c.fetch('manufacturing', 'BillOfMaterial')
-        self.assertFalse(session.put.called)   # entities are only read with GET
+        self.assertFalse(session.put.called)   # only GET reads
         self.assertFalse(session.delete.called)
         self.assertEqual(session.post.call_count, 2)   # login + logout only
 
@@ -72,16 +72,21 @@ class ClientTests(unittest.TestCase):
                 c.fetch('default', 'Vendor')
         self.assertTrue(session.post.call_args_list[-1].args[0].endswith('/entity/auth/logout'))
 
-    def test_inquiry_only_for_allowed_screens(self):
-        client, session = self.make([])
-        session.put.return_value = response(payload={'Results': [wrap(InventoryID='A', QtyAvailable=5)]})
+    def test_generic_inquiry_over_odata(self):
+        client, session = self.make([response(payload={'value': [{'SKU': 'A', 'Available': '5'}]})])
         with client as c:
-            result = c.inquiry('default', 'InventoryQuantityAvailable', {'LastModifiedDateTime': '1900-01-01'})
-            with self.assertRaisesRegex(AcumaticaError, 'not an allowed read-only inquiry'):
-                c.inquiry('default', 'StockItem', {})
-        self.assertEqual(result, {'Results': [{'InventoryID': 'A', 'QtyAvailable': 5}]})
-        self.assertEqual(session.put.call_count, 1)
-        self.assertEqual(session.put.call_args.kwargs['json'], {'LastModifiedDateTime': {'value': '1900-01-01'}})
+            rows = c.generic_inquiry('LR-Available Qty', select=['SKU', 'Available'])
+        self.assertEqual(rows, [{'SKU': 'A', 'Available': '5'}])
+        call = session.get.call_args
+        self.assertEqual(call.args[0], 'https://erp.example.com/odata/Westridge/LR-Available%20Qty')
+        self.assertEqual(call.kwargs['params'], {'$format': 'json', '$select': 'SKU,Available'})
+        self.assertEqual(call.kwargs['auth'], ('svc', 'pw'))
+
+    def test_generic_inquiry_not_found(self):
+        client, _ = self.make([response(status=404, payload={})])
+        with self.assertRaisesRegex(AcumaticaRequestError, 'exposed via OData'):
+            with client as c:
+                c.generic_inquiry('Nope')
 
     def test_permission_error(self):
         client, _ = self.make([response(status=403, payload={'message': 'You have insufficient rights'})])

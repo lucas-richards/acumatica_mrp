@@ -143,6 +143,18 @@ class PlanComponentTests(unittest.TestCase):
         self.assertEqual(p.status, Status.COVERED)
         self.assertIn(Flag.NO_USAGE, p.flags)
 
+    def test_back_ordered_finished_good_holds_no_components(self):
+        p = self.plan(component(on_hand=D(100)), fgs=[FinishedGood('FG1', 'One', D(-30), D(10))])
+        self.assertEqual(p.embedded_stock, D(0))
+        self.assertEqual(p.breakdown[0].fg_on_hand, D(-30))
+        self.assertEqual(p.supply_position, D(100))
+
+    def test_negative_available_is_a_shortage_even_without_usage(self):
+        p = self.plan(component(on_hand=D(-50), lot_size=D(10)), fgs=[FinishedGood('FG1', 'One', D(0), D(0))])
+        self.assertEqual(p.status, Status.STOCKOUT_RISK)
+        self.assertEqual(p.suggested_qty, D(50))
+        self.assertIsNone(p.months_at_arrival)
+
     def test_component_not_in_any_bom(self):
         p = self.plan(component(), bom=[])
         self.assertIn(Flag.NO_BOM, p.flags)

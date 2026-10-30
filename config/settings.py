@@ -165,6 +165,8 @@ ACUMATICA = {
     'ENDPOINT': os.environ.get('ACUMATICA_ENDPOINT', 'Default/24.200.001'),
     'MANUFACTURING_ENDPOINT': os.environ.get('ACUMATICA_MANUFACTURING_ENDPOINT', 'MANUFACTURING/24.200.001'),
     'SALES_ORDER_TYPES': env_list('ACUMATICA_SALES_ORDER_TYPES', 'SO'),
+    # Generic Inquiry with SKU, Warehouse and Available columns
+    'AVAILABLE_GI': os.environ.get('ACUMATICA_AVAILABLE_GI', 'LR-Available Qty'),
 }
 
 

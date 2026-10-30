@@ -1,23 +1,19 @@
 """Read-only client for Acumatica's contract-based REST API.
 
 Logs in with a cookie session, pages through entities with $top/$skip and always
-logs out (each open session uses one of the instance's API logins). Entities are
-only read with GET; read-only inquiry screens are run with PUT of their filter
-values, which is how Acumatica runs an inquiry. Nothing is ever written.
+logs out (each open session uses one of the instance's API logins). Entities and
+Generic Inquiries (OData) are only read with GET; nothing is ever written.
 """
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
+from urllib.parse import quote
 
 import requests
 
 log = logging.getLogger('acumatica')
-
-
-# Inquiry screens (no data changes) that may be run with RestClient.inquiry()
-INQUIRIES = frozenset({'InventoryQuantityAvailable'})
 
 
 class AcumaticaError(Exception):
@@ -47,6 +43,7 @@ class AcumaticaConfig:
     branch: str = ''
     endpoints: tuple[tuple[str, str], ...] = (('default', 'Default/24.200.001'),
                                               ('manufacturing', 'MANUFACTURING/24.200.001'))
+    available_gi: str = 'LR-Available Qty'
     timeout: int = 120
     page_size: int = 250
 
@@ -133,22 +130,29 @@ class RestClient:
                 return
             skip += len(rows)
 
-    def inquiry(self, endpoint: str, entity: str, parameters: dict[str, Any], expand: str = 'Results') -> dict[str, Any]:
-        """Run a read-only inquiry screen. Acumatica runs inquiries with a PUT of the filter
-        values; this changes no data. Only entities listed in INQUIRIES may be used."""
-        if entity not in INQUIRIES:
-            raise AcumaticaError(f'{entity} is not an allowed read-only inquiry')
-        url = self._url(f'/entity/{self.config.endpoint(endpoint)}/{entity}')
-        body = {k: {'value': v} for k, v in parameters.items()}
+    def generic_inquiry(self, name: str, select: Optional[list[str]] = None) -> list[dict[str, Any]]:
+        """Read a Generic Inquiry over OData ({base}/odata/{tenant}/{name}) with a GET."""
+        url = self._url(f'/odata/{quote(self.config.tenant, safe="")}/{quote(name, safe="")}')
+        params = {'$format': 'json'}
+        if select:
+            params['$select'] = ','.join(select)
         try:
-            r = self.session.put(url, params={'$expand': expand}, json=body, timeout=self.config.timeout)
+            r = self.session.get(url, params=params, auth=(self.config.username, self.config.password),
+                                 timeout=self.config.timeout)
         except requests.RequestException as exc:
-            raise AcumaticaRequestError(f'{entity}: request failed: {exc}') from exc
+            raise AcumaticaRequestError(f'GI {name!r}: request failed: {exc}') from exc
         if r.status_code in (401, 403):
-            raise AcumaticaPermissionError(f'{entity}: {_message(r)}', r.status_code)
+            raise AcumaticaPermissionError(f'GI {name!r}: not authorised', r.status_code)
+        if r.status_code == 404:
+            raise AcumaticaRequestError(f'GI {name!r} not found (is it exposed via OData?)', 404)
         if r.status_code != 200:
-            raise AcumaticaRequestError(f'{entity}: HTTP {r.status_code}: {_message(r)}', r.status_code)
-        return flatten(r.json())
+            raise AcumaticaRequestError(f'GI {name!r}: HTTP {r.status_code}: {_message(r)}', r.status_code)
+        try:
+            rows = r.json().get('value', [])
+        except (ValueError, AttributeError) as exc:
+            raise AcumaticaRequestError(f'GI {name!r}: unexpected response') from exc
+        log.info('Fetched GI %s: %d rows', name, len(rows))
+        return rows
 
     def fetch(self, endpoint: str, entity: str, **kwargs) -> list[dict[str, Any]]:
         rows = list(self.iter_entities(endpoint, entity, **kwargs))

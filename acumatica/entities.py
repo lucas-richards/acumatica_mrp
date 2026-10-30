@@ -43,7 +43,7 @@ DEMAND_SOURCE_ENTITIES = {
 class Client(Protocol):
     def fetch(self, endpoint: str, entity: str, *, select=None, expand=None, filter: str = '') -> list[dict]: ...
 
-    def inquiry(self, endpoint: str, entity: str, parameters: dict, expand: str = 'Results') -> dict: ...
+    def generic_inquiry(self, name: str, select=None) -> list[dict]: ...
 
 
 @dataclass
@@ -53,6 +53,7 @@ class FetchOptions:
     po_history_months: int = 24
     shipment_months: int = 13
     sales_order_types: tuple[str, ...] = ('SO',)
+    available_gi: str = 'LR-Available Qty'
 
 
 @dataclass
@@ -228,21 +229,25 @@ def explode(direct: dict[str, list[tuple[str, Decimal]]], warnings: list[str]) -
     return {parent: walk(parent, ()) for parent in direct}
 
 
-def fetch_available(client: Client, warnings: list[str]) -> Optional[dict[str, Decimal]]:
-    """Available quantity per item (all warehouses, base unit) from the Inventory Quantity
-    Available inquiry. None when the user has no access; the planner then uses on-hand."""
+def fetch_available(client: Client, gi_name: str, warnings: list[str]) -> Optional[dict[str, Decimal]]:
+    """Available quantity per item (summed over warehouses, base unit) from a Generic Inquiry
+    with SKU, Warehouse and Available columns. None if it can't be read; the planner then
+    uses quantity on hand."""
     try:
-        result = client.inquiry('default', 'InventoryQuantityAvailable',
-                                {'LastModifiedDateTime': '1900-01-01T00:00:00'})
-    except AcumaticaPermissionError:
-        warnings.append('Available quantity is not accessible (Inventory Quantity Available screen SO640590); '
-                        'the planner uses quantity on hand instead. Ask your Acumatica admin for access.')
+        rows = client.generic_inquiry(gi_name, select=['SKU', 'Warehouse', 'Available'])
+    except AcumaticaError as exc:
+        warnings.append(f'Available quantity could not be read from GI {gi_name!r} ({exc}); '
+                        'the planner uses quantity on hand instead.')
         return None
-    available: dict[str, Decimal] = defaultdict(Decimal)
-    for row in result.get('Results') or []:
-        sku = (row.get('InventoryID') or '').strip()
+    per_warehouse: dict[tuple[str, str], Decimal] = {}
+    for row in rows:
+        sku = (row.get('SKU') or '').strip()
         if sku:
-            available[sku] += dec(row.get('QtyAvailable')) or Decimal(0)
+            # The GI can repeat an item/warehouse row (joined documents); the value is the same
+            per_warehouse[(sku, (row.get('Warehouse') or '').strip())] = dec(row.get('Available')) or Decimal(0)
+    available: dict[str, Decimal] = defaultdict(Decimal)
+    for (sku, _), qty in per_warehouse.items():
+        available[sku] += qty
     return dict(available)
 
 
@@ -312,7 +317,7 @@ def fetch_all(client: Client, options: FetchOptions) -> FetchResult:
                    for p, leaves in exploded.items() if p in relevant
                    for c, q in leaves.items() if q > 0 and c in relevant]
 
-    available = fetch_available(client, warnings)
+    available = fetch_available(client, options.available_gi, warnings)
     data['stock_items'] = [{
         'sku': sku,
         'description': items[sku].get('Description') or '',

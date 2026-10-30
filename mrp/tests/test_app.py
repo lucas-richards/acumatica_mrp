@@ -262,7 +262,7 @@ class LoaderTests(TestCase):
 ACUMATICA_TEST_SETTINGS = {
     'BASE_URL': 'https://erp.example.com', 'TENANT': 'T', 'BRANCH': '', 'USERNAME': 'u', 'PASSWORD': 'p',
     'TIMEOUT': 5, 'ENDPOINT': 'Default/24.200.001', 'MANUFACTURING_ENDPOINT': 'MANUFACTURING/24.200.001',
-    'SALES_ORDER_TYPES': ['SO'],
+    'SALES_ORDER_TYPES': ['SO'], 'AVAILABLE_GI': 'LR-Available Qty',
 }
 
 
