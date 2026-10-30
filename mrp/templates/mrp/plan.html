@@ -20,6 +20,10 @@
   {% endif %}
 </header>
 
+<div id="plan-loading" class="htmx-indicator loading" role="status">
+  <span class="loading-bar" aria-hidden="true"></span>
+  <span class="loading-pill"><span class="spinner" aria-hidden="true"></span>Loading…</span>
+</div>
 <div id="plan-content">
   {% include "mrp/_plan_content.html" %}
 </div>

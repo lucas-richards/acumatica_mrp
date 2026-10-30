@@ -77,7 +77,9 @@ class PlanPageTests(TestCase):
         self.assertEqual(len(chip_names), 6)                     # All vendors + top 5
         self.assertNotIn('Tiny Springs', chip_names)              # no PO history, fewest components
         self.assertEqual(response.context['more_vendors'], 1)
-        self.assertContains(response, 'Find another vendor')
+        self.assertContains(response, 'placeholder="Vendor name or ID"')
+        self.assertNotContains(response, 'Find another vendor')
+        self.assertContains(response, 'id="plan-loading"')
 
         found = self.client.get(reverse('mrp:vendor_search'), {'q': 'tiny'})
         self.assertContains(found, 'Tiny Springs')

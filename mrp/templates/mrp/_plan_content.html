@@ -1,26 +1,20 @@
 {% load mrp_format %}{% url 'mrp:plan' as plan_url %}
 <section class="card filters" aria-label="Filters">
-  <div class="vendor-row">
-    <div class="filter-group">
-      <h2 class="label" id="vendor-label">Vendor</h2>
-      <div class="chips" role="group" aria-labelledby="vendor-label">
-        {% for vid, name, q in vendor_chips %}
-        <a class="chip{% if vid == options.vendor_id|default_if_none:'' %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
-           hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true"
-           {% if vid == options.vendor_id|default_if_none:'' %}aria-current="true"{% endif %}>{{ name }}</a>
-        {% endfor %}
-      </div>
-    </div>
+  <h2 class="label" id="vendor-label">Vendor</h2>
+  <div class="chips" role="group" aria-labelledby="vendor-label">
+    {% for vid, name, q in vendor_chips %}
+    <a class="chip{% if vid == options.vendor_id|default_if_none:'' %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
+       hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true" hx-indicator="#plan-loading, #plan-content"
+       {% if vid == options.vendor_id|default_if_none:'' %}aria-current="true"{% endif %}>{{ name }}</a>
+    {% endfor %}
     {% if more_vendors %}
-    <div class="vendor-search">
-      <label class="label" for="vendor-q">Find another vendor <span class="muted">({{ more_vendors }} more)</span></label>
-      <input type="search" id="vendor-q" name="q" placeholder="Vendor name or ID" autocomplete="off"
-             hx-get="{% url 'mrp:vendor_search' %}" hx-trigger="input changed delay:250ms, search"
-             hx-target="#vendor-results" aria-controls="vendor-results">
-      <div id="vendor-results" class="chips vendor-results" aria-live="polite"></div>
-    </div>
+    <input type="search" id="vendor-q" class="vendor-search" name="q" placeholder="Vendor name or ID" autocomplete="off"
+           aria-label="Search {{ more_vendors }} more vendors by name or ID"
+           hx-get="{% url 'mrp:vendor_search' %}" hx-trigger="input changed delay:250ms, search"
+           hx-target="#vendor-results" aria-controls="vendor-results">
     {% endif %}
   </div>
+  {% if more_vendors %}<div id="vendor-results" class="chips vendor-results" aria-live="polite"></div>{% endif %}
 </section>
 
 <section class="card table-card" aria-labelledby="components-title">
