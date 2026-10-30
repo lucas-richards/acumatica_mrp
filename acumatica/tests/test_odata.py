@@ -1,6 +1,7 @@
 import datetime as dt
 import unittest
 from decimal import Decimal as D
+from pathlib import Path
 from unittest import mock
 
 import requests
@@ -110,6 +111,15 @@ class MappingTests(unittest.TestCase):
 
     def test_empty_gi(self):
         self.assertEqual(map_rows(SPECS['bom'], []), [])
+
+
+class DocumentationTests(unittest.TestCase):
+    def test_admin_doc_lists_every_gi_and_column(self):
+        doc = (Path(__file__).resolve().parents[2] / 'docs' / 'acumatica_generic_inquiries.md').read_text()
+        for spec in SPECS.values():
+            self.assertIn(spec.default_gi_name, doc, spec.key)
+            for field in spec.fields:
+                self.assertIn(f'`{field.gi_column}`', doc, f'{spec.key}.{field.gi_column}')
 
 
 if __name__ == '__main__':
