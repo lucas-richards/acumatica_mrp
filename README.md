@@ -60,8 +60,8 @@ All configuration comes from the environment or from `.env` in the project root.
 |---|---|
 | `SECRET_KEY` | Django secret key (required unless `DEBUG=True`) |
 | `DEBUG` | `True` only for development |
-| `ALLOWED_HOSTS` | Comma-separated, e.g. `10.1.1.19,localhost` |
-| `CSRF_TRUSTED_ORIGINS` | e.g. `http://10.1.1.19` |
+| `ALLOWED_HOSTS` | Comma-separated, e.g. `10.1.1.32,localhost` |
+| `CSRF_TRUSTED_ORIGINS` | e.g. `http://10.1.1.32` |
 | `DATABASE_URL` | `postgres://mrp_user:...@localhost:5432/mrp` |
 | `STATIC_URL` | `/mrp/static/` under Apache (default `/static/` for runserver) |
 | `COOKIE_PATH` | `/mrp` under Apache |
@@ -71,7 +71,7 @@ All configuration comes from the environment or from `.env` in the project root.
 | `EMAIL_HOST` (`smtp.fastmail.com`), `EMAIL_PORT` (465), `EMAIL_USE_SSL`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Fastmail SMTP with an app-specific password |
 | `DEFAULT_FROM_EMAIL` | Sender address |
 | `MRP_REMINDER_TO` | Comma-separated recipients of vendor reminders |
-| `MRP_SITE_URL` | Link used in emails, e.g. `http://10.1.1.19/mrp` |
+| `MRP_SITE_URL` | Link used in emails, e.g. `http://10.1.1.32/mrp` |
 
 ## Data
 

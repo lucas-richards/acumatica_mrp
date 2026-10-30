@@ -1,6 +1,6 @@
 # Deploying the MRP planner next to westridgeApp
 
-This app is served by the same Apache as westridgeApp. It runs in its own mod_wsgi daemon process with its own venv, database and cookies, and is mounted at **http://10.1.1.19/mrp/**. westridgeApp keeps `/`.
+This app is served by the same Apache as westridgeApp. It runs in its own mod_wsgi daemon process with its own venv, database and cookies, and is mounted at **http://10.1.1.32/mrp/**. westridgeApp keeps `/`.
 
 These steps change system files, so you run them yourself. Everything inside `/home/bc/westridgeApp_mrp` can be prepared first.
 
@@ -10,7 +10,7 @@ These steps change system files, so you run them yourself. Everything inside `/h
 cd /home/bc/westridgeApp_mrp
 cp .env.example .env && chmod 600 .env
 # Edit .env: SECRET_KEY, DATABASE_URL, STATIC_URL=/mrp/static/, COOKIE_PATH=/mrp,
-# ALLOWED_HOSTS=10.1.1.19, CSRF_TRUSTED_ORIGINS=http://10.1.1.19, email settings, etc.
+# ALLOWED_HOSTS=10.1.1.32, CSRF_TRUSTED_ORIGINS=http://10.1.1.32, email settings, etc.
 .venv/bin/python -c "import secrets; print(secrets.token_urlsafe(50))"   # use this for SECRET_KEY
 
 .venv/bin/python manage.py migrate
@@ -42,9 +42,9 @@ The generated password is URL-safe, so it can go straight into `DATABASE_URL`. I
 4. Reload (this is graceful and doesn't drop westridgeApp requests):
    `sudo systemctl reload apache2`
 5. Check both apps:
-   - `curl -sI http://10.1.1.19/` should be westridgeApp, as before.
-   - `curl -sI http://10.1.1.19/mrp/` should return `302` to `/mrp/login/?next=/mrp/`.
-   - `curl -sI http://10.1.1.19/mrp/static/mrp/app.css` should return `200`.
+   - `curl -sI http://10.1.1.32/` should be westridgeApp, as before.
+   - `curl -sI http://10.1.1.32/mrp/` should return `302` to `/mrp/login/?next=/mrp/`.
+   - `curl -sI http://10.1.1.32/mrp/static/mrp/app.css` should return `200`.
    - Errors go to the shared `/var/log/apache2/error.log`. Lines from this app show the process name `(wsgi:mrpApp)`.
 
 **Rollback:** delete the pasted block (or restore the backup), then `sudo apachectl configtest && sudo systemctl reload apache2`.
