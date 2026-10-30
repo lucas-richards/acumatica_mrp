@@ -6,6 +6,7 @@ app_name = 'mrp'
 
 urlpatterns = [
     path('', views.plan, name='plan'),
+    path('vendors/search/', views.vendor_search, name='vendor_search'),
     # SKU is last and uses <path:> because Acumatica inventory IDs may contain "/"
     path('breakdown/<path:sku>', views.breakdown, name='breakdown'),
     path('export.csv', views.export_csv, name='export_csv'),

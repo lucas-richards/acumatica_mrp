@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional
@@ -116,3 +117,20 @@ def options_from_query(params, settings_obj: models.PlanSettings) -> PlanOptions
 
 def last_sync() -> Optional[models.SyncRun]:
     return models.SyncRun.objects.filter(status=models.SyncRun.OK).first()
+
+
+def purchasing_vendors() -> list[tuple[str, str]]:
+    """(vendor_id, name) of vendors that are the planning vendor for at least one component,
+    most used first: by PO lines in the synced history, then by number of components supplied."""
+    component_skus = set(models.StockItem.objects.filter(kind=models.StockItem.COMPONENT)
+                         .values_list('sku', flat=True))
+    chosen: dict[str, tuple[bool, str]] = {}   # sku -> (is_default, vendor_id), same rule as planning inputs
+    for sku, vendor_id, is_default in models.ItemVendor.objects.order_by('id').values_list('sku', 'vendor_id', 'is_default'):
+        if sku in component_skus and (sku not in chosen or (is_default and not chosen[sku][0])):
+            chosen[sku] = (is_default, vendor_id)
+    component_counts = Counter(vendor_id for _, vendor_id in chosen.values())
+    po_counts = Counter(models.PoHistory.objects.filter(vendor_id__in=component_counts)
+                        .values_list('vendor_id', flat=True))
+    names = dict(models.Vendor.objects.filter(vendor_id__in=component_counts).values_list('vendor_id', 'name'))
+    ranked = sorted(component_counts, key=lambda v: (-po_counts[v], -component_counts[v], names.get(v, v)))
+    return [(v, names.get(v, v)) for v in ranked]

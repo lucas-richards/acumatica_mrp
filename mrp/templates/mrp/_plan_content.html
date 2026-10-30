@@ -9,6 +9,16 @@
          {% if vid == options.vendor_id|default_if_none:'' %}aria-current="true"{% endif %}>{{ name }}</a>
       {% endfor %}
     </div>
+    {% if more_vendors %}
+    <div class="vendor-search">
+      <label for="vendor-q">Find another vendor <span class="muted">({{ more_vendors }} more)</span></label>
+      <input type="search" id="vendor-q" name="q" placeholder="Vendor name or ID" autocomplete="off"
+             hx-get="{% url 'mrp:vendor_search' %}" hx-trigger="input changed delay:250ms, search"
+             hx-target="#vendor-results" hx-vals='{"cover": "{{ options.cover_months }}", "mode": "{{ options.qty_mode.value }}"}'
+             aria-controls="vendor-results">
+      <div id="vendor-results" class="chips vendor-results" aria-live="polite"></div>
+    </div>
+    {% endif %}
   </div>
   <div class="filter-row">
     <div class="filter-group">
@@ -98,17 +108,17 @@
   {% endif %}
 
   <ul class="vendor-cards">
-    {% for r in result.reminders %}
+    {% for r in due_reminders %}
     <li class="card vendor-card{% if r.vendor.vendor_id == options.vendor_id %} is-selected{% endif %}">
       <div class="vendor-card-head">
         <h3><a href="{{ plan_url }}?vendor={{ r.vendor.vendor_id|urlencode }}&amp;cover={{ options.cover_months }}&amp;mode={{ options.qty_mode.value }}">{{ r.vendor.name }}</a></h3>
         <span class="pill pill-{{ r.status|status_class }}">{{ r.status.value }}</span>
       </div>
-      <p class="vendor-when">{% if not r.components_due %}Nothing to order yet{% elif r.order_now %}Order now{% else %}Order by {{ r.next_order_by|date:"M j" }}{% endif %}</p>
-      <p class="muted">Lead time {{ r.vendor.lead_time_days|lead_time }} · {% if r.components_due %}{{ r.components_due }} component{{ r.components_due|pluralize }} due{% else %}No components due{% endif %}</p>
+      <p class="vendor-when">{% if r.order_now %}Order now{% else %}Order by {{ r.next_order_by|date:"M j" }}{% endif %}</p>
+      <p class="muted">Lead time {{ r.vendor.lead_time_days|lead_time }} · {{ r.components_due }} component{{ r.components_due|pluralize }} due</p>
     </li>
     {% empty %}
-    <li class="muted">No vendors loaded.</li>
+    <li class="muted">Nothing to order from any vendor right now.</li>
     {% endfor %}
   </ul>
   <div class="actions">

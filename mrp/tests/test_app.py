@@ -53,11 +53,45 @@ class PlanPageTests(TestCase):
         response = self.client.get(reverse('mrp:plan'))
         self.assertEqual(response.status_code, 200)
         for text in ['Sample data', 'of 11 shown', '$10,195', '2 already late to order', 'COMP-2250, COMP-4408',
-                     'Reminder active', 'Order by Nov 3', 'Order by Dec 14', 'Nothing to order yet',
+                     'Reminder active', 'Order by Nov 3', 'Order by Dec 14',
                      '+120 in FG stock', 'Stockout risk']:
             self.assertContains(response, text)
         self.assertNotContains(response, 'Refresh from Acumatica')   # planners only
         self.assertNotContains(response, 'Create PO')
+
+    def test_reminder_cards_only_for_vendors_with_orders_due(self, _today):
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('mrp:plan'))
+        cards = [r.vendor.name for r in response.context['due_reminders']]
+        self.assertEqual(cards, ['Pacific Drives', 'Cascade Cable Co', 'Northwest Metals', 'Inland Fasteners'])
+        self.assertNotContains(response, 'Nothing to order yet')
+
+    def test_top_five_vendor_chips_and_search(self, _today):
+        models.Vendor.objects.create(vendor_id='TINY', name='Tiny Springs')
+        models.StockItem.objects.create(sku='COMP-9000', description='Spring', kind='component')
+        models.ItemVendor.objects.create(sku='COMP-9000', vendor_id='TINY', is_default=True)
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('mrp:plan'))
+        chip_names = [name for _, name, _ in response.context['vendor_chips']]
+        self.assertEqual(len(chip_names), 6)                     # All vendors + top 5
+        self.assertNotIn('Tiny Springs', chip_names)              # no PO history, fewest components
+        self.assertEqual(response.context['more_vendors'], 1)
+        self.assertContains(response, 'Find another vendor')
+
+        found = self.client.get(reverse('mrp:vendor_search'), {'q': 'tiny', 'cover': 1})
+        self.assertContains(found, 'Tiny Springs')
+        self.assertContains(found, 'vendor=TINY&amp;cover=1')
+        self.assertContains(self.client.get(reverse('mrp:vendor_search'), {'q': 'zzz'}), 'No vendor matches')
+
+        # A vendor picked from search shows as the active chip
+        response = self.client.get(reverse('mrp:plan'), {'vendor': 'TINY'})
+        self.assertIn('Tiny Springs', [name for _, name, _ in response.context['vendor_chips']])
+
+    def test_vendor_ranking_by_po_history(self, _today):
+        for n in range(5):
+            models.PoHistory.objects.create(sku='COMP-6001', vendor_id='SUMSEA', order_nbr=f'X{n}',
+                                            order_date=ANCHOR, qty=1)
+        self.assertEqual(services.purchasing_vendors()[0], ('SUMSEA', 'Summit Seals'))
 
     def test_filters(self, _today):
         self.client.force_login(self.viewer)

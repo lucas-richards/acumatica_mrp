@@ -18,6 +18,8 @@ from .roles import is_planner, planner_required, viewer_required
 
 COVER_CHOICES = [(0, 'Lead time only')] + [(n, f'+{n} month' + ('s' if n > 1 else '')) for n in range(1, MAX_COVER_MONTHS + 1)]
 QTY_MODE_CHOICES = models.PlanSettings.QTY_MODE_CHOICES
+TOP_VENDOR_CHIPS = 5
+VENDOR_SEARCH_LIMIT = 12
 
 
 def _query(options, **changes):
@@ -30,7 +32,11 @@ def _plan_context(request):
     settings_obj = models.PlanSettings.load()
     options = services.options_from_query(request.GET, settings_obj)
     result = services.build_plan(options, settings_obj)
-    vendors = list(models.Vendor.objects.values_list('vendor_id', 'name'))
+    vendors = services.purchasing_vendors()
+    top = vendors[:TOP_VENDOR_CHIPS]
+    if options.vendor_id and options.vendor_id not in dict(top):
+        # Keep a vendor picked from search visible as the active chip
+        top.append((options.vendor_id, dict(vendors).get(options.vendor_id, options.vendor_id)))
     return {
         'nav': 'plan',
         'result': result,
@@ -40,7 +46,9 @@ def _plan_context(request):
         'is_default_view': (options.cover_months == settings_obj.cover_months
                             and options.qty_mode.value == settings_obj.qty_mode),
         'vendor_chips': [('', 'All vendors', _query(options, vendor=''))]
-                        + [(vid, name, _query(options, vendor=vid)) for vid, name in vendors],
+                        + [(vid, name, _query(options, vendor=vid)) for vid, name in top],
+        'more_vendors': len(vendors) - min(len(vendors), TOP_VENDOR_CHIPS),
+        'due_reminders': [r for r in result.reminders if r.components_due],
         'cover_chips': [(n, label, _query(options, cover=n)) for n, label in COVER_CHOICES],
         'mode_chips': [(value, label, _query(options, mode=value)) for value, label in QTY_MODE_CHOICES],
         'reminder_choices': REMINDER_DAY_CHOICES,
@@ -59,6 +67,23 @@ def plan(request):
     # HTMX filter clicks swap only the plan content
     template = 'mrp/_plan_content.html' if request.headers.get('HX-Request') and not request.headers.get('HX-History-Restore-Request') else 'mrp/plan.html'
     return render(request, template, context)
+
+
+@require_GET
+@viewer_required
+def vendor_search(request):
+    """HTMX: vendor chips matching the search text (name or ID), keeping cover and mode."""
+    options = services.options_from_query(request.GET, models.PlanSettings.load())
+    q = (request.GET.get('q') or '').strip().lower()
+    matches = []
+    if q:
+        matches = [(vid, name) for vid, name in services.purchasing_vendors()
+                   if q in name.lower() or q in vid.lower()][:VENDOR_SEARCH_LIMIT]
+    return render(request, 'mrp/_vendor_results.html', {
+        'q': q,
+        'results': [(vid, name, _query(options, vendor=vid)) for vid, name in matches],
+        'limit': VENDOR_SEARCH_LIMIT,
+    })
 
 
 @require_GET
