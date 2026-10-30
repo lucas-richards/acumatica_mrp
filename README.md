@@ -5,7 +5,7 @@ An internal, read-only purchasing planner. For each purchased component it works
 - whether current supply lasts through the vendor's lead time
 - when to order and how much
 
-Data comes from Acumatica Generic Inquiries over OData. The app never writes to Acumatica in phase 1.
+Data comes from Acumatica's own records (BOMs, stock items, vendors, purchase orders, shipments, sales orders) through the REST API. The app never writes to Acumatica in phase 1.
 
 This is a separate Django project from westridgeApp. It has its own venv, its own PostgreSQL database, its own mod_wsgi daemon process, and its own users and cookies. It is served at `/mrp` on the same Apache.
 
@@ -14,11 +14,11 @@ This is a separate Django project from westridgeApp. It has its own venv, its ow
 ```
 config/       Django settings (env-driven), urls, wsgi
 planning/     Pure-Python MRP maths: no Django imports, fully unit tested
-acumatica/    Read-only OData client + Generic Inquiry field specs
+acumatica/    Read-only REST client + entity mapping (units, multi-level BOM explosion)
 mrp/          Django app: models, views/templates (HTMX), management commands
 sample_data/  Sample dataset (also the JSON import format reference)
 deploy/       Apache snippet + instructions, create_db.sql, cron example
-docs/         Generic Inquiry spec for the Acumatica admin
+docs/         What is read from Acumatica and which screen rights are needed
 ```
 
 Later phases (draft POs, production orders, SKUs, BOMs) will be new Django apps beside `mrp/`. They will reuse `acumatica/` and `planning/`.
@@ -66,8 +66,9 @@ All configuration comes from the environment or from `.env` in the project root.
 | `STATIC_URL` | `/mrp/static/` under Apache (default `/static/` for runserver) |
 | `COOKIE_PATH` | `/mrp` under Apache |
 | `SECURE_COOKIES` | `True` once the site is on HTTPS |
-| `ACUMATICA_BASE_URL`, `ACUMATICA_TENANT`, `ACUMATICA_USERNAME`, `ACUMATICA_PASSWORD` | Read-only OData access |
-| `ACUMATICA_GI_*` | Optional GI name overrides (see `.env.example`) |
+| `ACUMATICA_BASE_URL`, `ACUMATICA_TENANT`, `ACUMATICA_BRANCH`, `ACUMATICA_USERNAME`, `ACUMATICA_PASSWORD` | Read-only REST API login |
+| `ACUMATICA_ENDPOINT`, `ACUMATICA_MANUFACTURING_ENDPOINT` | REST endpoints (default `Default/24.200.001`, `MANUFACTURING/24.200.001`) |
+| `ACUMATICA_SALES_ORDER_TYPES` | Sales order types counted as demand (default `SO`) |
 | `EMAIL_HOST` (`smtp.fastmail.com`), `EMAIL_PORT` (465), `EMAIL_USE_SSL`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Fastmail SMTP with an app-specific password |
 | `DEFAULT_FROM_EMAIL` | Sender address |
 | `MRP_REMINDER_TO` | Comma-separated recipients of vendor reminders |
@@ -105,9 +106,9 @@ Each dataset in the file fully replaces what is stored. If any row is invalid, n
 .venv/bin/python manage.py sync_acumatica --all-demand    # pull all three demand sources
 ```
 
-The sync downloads every GI first and then replaces the local tables in one transaction. If anything fails, such as a network error, a missing column or a bad value, the previous data stays and the error is recorded as a failed sync run (visible in the admin). Planners can also run the same sync with **Refresh from Acumatica**.
+The sync reads everything first and then replaces the local tables in one transaction. If anything fails, such as a network error, a missing column or a bad value, the previous data stays and the error is recorded as a failed sync run (visible in the admin). Planners can also run the same sync with **Refresh from Acumatica**.
 
-`docs/acumatica_generic_inquiries.md` lists the GIs and columns your Acumatica admin needs to create.
+`docs/acumatica_access.md` explains exactly what is read, how it is filtered and converted, and which Acumatica screen rights the user needs.
 
 ### Lead times
 
@@ -158,7 +159,7 @@ FG demand is a swappable function (`planning/demand.py`):
 ```bash
 DEBUG=True .venv/bin/python manage.py test                                  # everything
 .venv/bin/python -m unittest discover -s planning -t .                      # planning only, no Django
-.venv/bin/python -m unittest discover -s acumatica -t .                     # OData client only
+.venv/bin/python -m unittest discover -s acumatica -t .                     # Acumatica client and mapping only
 ```
 
 `planning/tests/test_sample_data.py` checks that the sample data reproduces every number on the mockup.

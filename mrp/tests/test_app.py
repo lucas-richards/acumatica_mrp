@@ -13,7 +13,8 @@ from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from acumatica.odata import AcumaticaRequestError
+from acumatica.rest import AcumaticaPermissionError
+from acumatica.tests.test_entities import FakeClient, base_records
 from mrp import loaders, models, services, sync
 from mrp.management.commands.seed_demo import SAMPLE_FILE, shift_sample
 
@@ -254,62 +255,50 @@ class LoaderTests(TestCase):
             call_command('import_data', json_path=fh.name, stdout=io.StringIO())
 
 
-@override_settings(ACUMATICA={'BASE_URL': 'https://erp.example.com', 'TENANT': 'T', 'USERNAME': 'u', 'PASSWORD': 'p',
-                              'TIMEOUT': 5, 'GI_NAMES': {
-                                  'stock_items': 'S', 'on_hand': 'O', 'open_po_lines': 'P', 'bom': 'B', 'vendors': 'V',
-                                  'item_vendors': 'IV', 'po_history': 'H', 'demand_shipments': 'DS',
-                                  'demand_sales_orders': 'DSO', 'demand_forecast': 'DF'}})
+ACUMATICA_TEST_SETTINGS = {
+    'BASE_URL': 'https://erp.example.com', 'TENANT': 'T', 'BRANCH': '', 'USERNAME': 'u', 'PASSWORD': 'p',
+    'TIMEOUT': 5, 'ENDPOINT': 'Default/24.200.001', 'MANUFACTURING_ENDPOINT': 'MANUFACTURING/24.200.001',
+    'SALES_ORDER_TYPES': ['SO'],
+}
+
+
+@override_settings(ACUMATICA=ACUMATICA_TEST_SETTINGS)
+@mock.patch('mrp.services.today', return_value=dt.date(2026, 10, 30))
 class SyncTests(TestCase):
-    GI_ROWS = {
-        'V': [{'VendorID': 'V1', 'VendorName': 'Acme', 'LeadTimeDays': 30, 'Email': ''}],
-        'S': [{'InventoryID': 'C1', 'Description': 'Bolt', 'ItemClass': '', 'IsFinishedGood': False, 'BaseUnit': 'EA', 'LotSize': 10},
-              {'InventoryID': 'F1', 'Description': 'Pump', 'ItemClass': '', 'IsFinishedGood': True, 'BaseUnit': 'EA', 'LotSize': None}],
-        'O': [{'InventoryID': 'C1', 'Warehouse': 'MAIN', 'QtyOnHand': 5}],
-        'P': [],
-        'B': [{'FinishedGood': 'F1', 'Component': 'C1', 'QtyPerUnit': 2}],
-        'IV': [{'InventoryID': 'C1', 'VendorID': 'V1', 'IsDefault': True, 'LeadTimeDays': None, 'LastCost': 1.5, 'LotSize': None}],
-        'H': [],
-        'DS': [{'InventoryID': 'F1', 'ShipmentDate': '2026-09-03T00:00:00', 'ShippedQty': 30},
-               {'InventoryID': 'F1', 'ShipmentDate': '2026-09-20T00:00:00', 'ShippedQty': 30}],
-    }
-
-    def fake_client(self, fail_on=None):
-        client = mock.Mock()
-
-        def fetch(gi, select=None, filter=''):
-            if gi == fail_on:
-                raise AcumaticaRequestError('boom', 500)
-            return self.GI_ROWS[gi]
-        client.fetch_rows.side_effect = fetch
-        return client
-
-    def test_sync_loads_everything(self):
-        run = sync.run_sync(client=self.fake_client())
+    def test_sync_loads_everything(self, _today):
+        run = sync.run_sync(client=FakeClient(base_records()))
         self.assertEqual(run.status, models.SyncRun.OK)
-        self.assertEqual(models.StockItem.objects.get(sku='F1').kind, 'finished_good')
-        self.assertEqual(models.DemandBucket.objects.get().qty, 60)
-        with mock.patch('mrp.services.today', return_value=dt.date(2026, 10, 5)):
-            result = services.build_plan(services.default_options())
-        bolt = result.all_plans[0]
-        self.assertEqual(bolt.usage_per_month, 20)        # 60 shipped / 6 months x 2 per unit
-        self.assertEqual(bolt.component.lead_time_days, 30)
+        self.assertTrue(any('CRATE' in w for w in run.warnings))
+        self.assertEqual(models.StockItem.objects.get(sku='SA-1').kind, 'finished_good')
+        self.assertEqual(models.DemandBucket.objects.get().month, dt.date(2026, 9, 1))
+        result = services.build_plan(services.default_options())
+        bolt = next(p for p in result.all_plans if p.sku == 'C-BOLT')
+        # FG-1 ships 6 in Sept -> 1/month over 6 months; 108 bolts per FG-1
+        self.assertEqual(bolt.usage_per_month, 108)
+        self.assertEqual(bolt.component.lead_time_days, 16)
+        self.assertEqual(bolt.component.on_order, 200)
+        # Embedded: 10 FG-1 x 108 + 3 SA-1 x 4
+        self.assertEqual(bolt.embedded_stock, 1092)
+        plate = next(p for p in result.all_plans if p.sku == 'C-PLATE')
+        self.assertEqual(plate.component.lead_time_days, 30)   # vendor default
 
-    def test_sync_failure_keeps_data(self):
+    def test_sync_failure_keeps_data(self, _today):
         seed()
-        with self.assertRaises(AcumaticaRequestError):
-            sync.run_sync(client=self.fake_client(fail_on='B'))
+        with self.assertRaises(AcumaticaPermissionError):
+            sync.run_sync(client=FakeClient(base_records(), deny={'BillOfMaterial'}))
         self.assertEqual(models.Vendor.objects.count(), 5)
         run = models.SyncRun.objects.filter(source=models.SyncRun.ACUMATICA).get()
         self.assertEqual(run.status, models.SyncRun.FAILED)
+        self.assertIn('AM208000', run.error)
         self.assertIsNotNone(run.finished_at)
 
-    def test_concurrent_sync_blocked(self):
+    def test_concurrent_sync_blocked(self, _today):
         models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA)
         with self.assertRaises(sync.SyncInProgress):
-            sync.run_sync(client=self.fake_client())
+            sync.run_sync(client=FakeClient(base_records()))
 
-    def test_command_without_config(self):
-        with override_settings(ACUMATICA={'BASE_URL': '', 'TENANT': '', 'USERNAME': '', 'PASSWORD': ''}):
+    def test_command_without_config(self, _today):
+        with override_settings(ACUMATICA={**ACUMATICA_TEST_SETTINGS, 'USERNAME': '', 'PASSWORD': ''}):
             with self.assertRaisesRegex(CommandError, 'not configured'):
                 call_command('sync_acumatica')
 

@@ -1,4 +1,4 @@
-"""Pull every dataset from Acumatica Generic Inquiries and load it locally."""
+"""Pull planning data from Acumatica (REST API, read-only) and load it locally."""
 from __future__ import annotations
 
 import datetime as dt
@@ -9,17 +9,15 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from acumatica.gi_specs import DEMAND_DATASETS, SPECS, map_rows
-from acumatica.odata import AcumaticaConfig, ODataClient
+from acumatica.entities import FetchOptions, fetch_all
+from acumatica.rest import AcumaticaConfig, RestClient
 
-from . import loaders, models
+from . import loaders, models, services
 
 log = logging.getLogger('mrp')
 
 # A running sync older than this is considered dead and no longer blocks a new one
 STALE_AFTER = dt.timedelta(minutes=30)
-
-MASTER_DATASETS = ['vendors', 'stock_items', 'on_hand', 'open_po_lines', 'bom', 'item_vendors', 'po_history']
 
 
 class SyncInProgress(Exception):
@@ -28,29 +26,16 @@ class SyncInProgress(Exception):
 
 def acumatica_config() -> AcumaticaConfig:
     cfg = settings.ACUMATICA
-    return AcumaticaConfig(base_url=cfg['BASE_URL'], tenant=cfg['TENANT'], username=cfg['USERNAME'],
-                           password=cfg['PASSWORD'], timeout=cfg['TIMEOUT'])
+    return AcumaticaConfig(
+        base_url=cfg['BASE_URL'], tenant=cfg['TENANT'], branch=cfg['BRANCH'],
+        username=cfg['USERNAME'], password=cfg['PASSWORD'], timeout=cfg['TIMEOUT'],
+        endpoints=(('default', cfg['ENDPOINT']), ('manufacturing', cfg['MANUFACTURING_ENDPOINT'])),
+    )
 
 
 def acumatica_configured() -> bool:
     cfg = settings.ACUMATICA
     return all(cfg[k] for k in ('BASE_URL', 'TENANT', 'USERNAME', 'PASSWORD'))
-
-
-def fetch_all(client: ODataClient, demand_sources: list[str]) -> dict[str, list[dict]]:
-    gi_names = settings.ACUMATICA['GI_NAMES']
-    data: dict[str, list[dict]] = {}
-    for key in MASTER_DATASETS:
-        spec = SPECS[key]
-        data[key] = map_rows(spec, client.fetch_rows(gi_names[key], select=spec.select))
-        log.info('Fetched %s: %d rows', key, len(data[key]))
-    data['demand'] = []
-    for source in demand_sources:
-        spec = SPECS[DEMAND_DATASETS[source]]
-        rows = map_rows(spec, client.fetch_rows(gi_names[spec.key], select=spec.select))
-        data['demand'] += loaders.bucket_dated_demand(rows, source)
-        log.info('Fetched demand %s: %d rows', source, len(rows))
-    return data
 
 
 def _start_run(user) -> models.SyncRun:
@@ -63,16 +48,22 @@ def _start_run(user) -> models.SyncRun:
         return models.SyncRun.objects.create(source=models.SyncRun.ACUMATICA, triggered_by=user)
 
 
-def run_sync(user=None, demand_sources: Optional[list[str]] = None,
-             client: Optional[ODataClient] = None) -> models.SyncRun:
-    """Fetch everything first, then load it in one transaction."""
+def run_sync(user=None, demand_sources: Optional[list[str]] = None, client=None) -> models.SyncRun:
+    """Fetch everything first (one logged-in session), then load it in one transaction."""
     if demand_sources is None:
         demand_sources = [models.PlanSettings.load().demand_source]
+    options = FetchOptions(today=services.today(), demand_sources=demand_sources,
+                           sales_order_types=tuple(settings.ACUMATICA['SALES_ORDER_TYPES']))
     run = _start_run(user)
     try:
-        client = client or ODataClient(acumatica_config())
-        data = fetch_all(client, demand_sources)
+        if client is None:
+            with RestClient(acumatica_config()) as rest:
+                result = fetch_all(rest, options)
+        else:
+            result = fetch_all(client, options)
     except Exception as exc:
         loaders.fail_run(run, exc)
         raise
-    return loaders.load_datasets(data, models.SyncRun.ACUMATICA, user=user, run=run)
+    run.warnings = result.warnings
+    # Demand rows carry dates in "month"; the loader buckets them into calendar months.
+    return loaders.load_datasets(result.data, models.SyncRun.ACUMATICA, user=user, run=run)

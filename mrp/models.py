@@ -125,6 +125,7 @@ class SyncRun(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     counts = models.JSONField(default=dict, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
     error = models.TextField(blank=True)
     triggered_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
 

@@ -6,6 +6,7 @@ optionally loaded from a gitignored .env file in the project root.
 """
 from pathlib import Path
 import os
+import sys
 
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
@@ -153,26 +154,24 @@ MRP_REMINDER_TO = env_list('MRP_REMINDER_TO')
 MRP_SITE_URL = os.environ.get('MRP_SITE_URL', 'http://localhost:8001')
 
 
-# Acumatica (read-only OData access to Generic Inquiries)
+# Acumatica (read-only, contract-based REST API)
 ACUMATICA = {
     'BASE_URL': os.environ.get('ACUMATICA_BASE_URL', ''),
     'TENANT': os.environ.get('ACUMATICA_TENANT', ''),
+    'BRANCH': os.environ.get('ACUMATICA_BRANCH', ''),
     'USERNAME': os.environ.get('ACUMATICA_USERNAME', ''),
     'PASSWORD': os.environ.get('ACUMATICA_PASSWORD', ''),
-    'TIMEOUT': int(os.environ.get('ACUMATICA_TIMEOUT', '60')),
-    'GI_NAMES': {
-        'stock_items': os.environ.get('ACUMATICA_GI_STOCK_ITEMS', 'MRP-StockItems'),
-        'on_hand': os.environ.get('ACUMATICA_GI_ON_HAND', 'MRP-OnHand'),
-        'open_po_lines': os.environ.get('ACUMATICA_GI_OPEN_PO_LINES', 'MRP-OpenPOLines'),
-        'bom': os.environ.get('ACUMATICA_GI_BOM', 'MRP-BOM'),
-        'vendors': os.environ.get('ACUMATICA_GI_VENDORS', 'MRP-Vendors'),
-        'item_vendors': os.environ.get('ACUMATICA_GI_ITEM_VENDORS', 'MRP-ItemVendors'),
-        'po_history': os.environ.get('ACUMATICA_GI_PO_HISTORY', 'MRP-POHistory'),
-        'demand_shipments': os.environ.get('ACUMATICA_GI_DEMAND_SHIPMENTS', 'MRP-DemandShipments'),
-        'demand_sales_orders': os.environ.get('ACUMATICA_GI_DEMAND_SALES_ORDERS', 'MRP-DemandSalesOrders'),
-        'demand_forecast': os.environ.get('ACUMATICA_GI_DEMAND_FORECAST', 'MRP-DemandForecast'),
-    },
+    'TIMEOUT': int(os.environ.get('ACUMATICA_TIMEOUT', '120')),
+    'ENDPOINT': os.environ.get('ACUMATICA_ENDPOINT', 'Default/24.200.001'),
+    'MANUFACTURING_ENDPOINT': os.environ.get('ACUMATICA_MANUFACTURING_ENDPOINT', 'MANUFACTURING/24.200.001'),
+    'SALES_ORDER_TYPES': env_list('ACUMATICA_SALES_ORDER_TYPES', 'SO'),
 }
+
+
+# Tests must never reach the real Acumatica or mail server, whatever .env contains.
+if len(sys.argv) > 1 and sys.argv[1] == 'test':
+    ACUMATICA.update({'BASE_URL': '', 'TENANT': '', 'USERNAME': '', 'PASSWORD': ''})
+    EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 
 
 LOGGING = {

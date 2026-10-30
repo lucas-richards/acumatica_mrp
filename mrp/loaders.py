@@ -133,12 +133,6 @@ def _merge_demand(rows):
     return [{'sku': s, 'source': src, 'month': m, 'qty': q} for (s, src, m), q in totals.items()]
 
 
-def bucket_dated_demand(rows: Iterable[Mapping[str, Any]], source: str) -> list[dict[str, Any]]:
-    """Turn dated demand lines ({sku, date, qty}) into monthly buckets for one source."""
-    return [{'sku': r['sku'], 'source': source, 'month': r['date'], 'qty': r['qty']}
-            for r in rows if r.get('date') is not None]
-
-
 def _replace(dataset: str, rows: list[dict[str, Any]]) -> int:
     model, _ = DATASETS[dataset]
     if dataset == 'demand':

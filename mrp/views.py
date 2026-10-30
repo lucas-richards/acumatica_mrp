@@ -7,7 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
-from acumatica.odata import AcumaticaError
+from acumatica.rest import AcumaticaError
 from planning.mrp import MAX_COVER_MONTHS
 from planning.models import QtyMode
 from planning.reminders import REMINDER_DAY_CHOICES

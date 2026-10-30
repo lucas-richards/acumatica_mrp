@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Optional
 
 from django.utils import timezone
@@ -42,10 +43,16 @@ def today() -> dt.date:
 
 
 def fg_demand(source: str, window_months: int, on: dt.date):
+    """Demand per finished good. Once a source has any data loaded, a finished good with no
+    rows (e.g. nothing shipped in the window) has zero demand rather than missing demand."""
     buckets = [MonthlyQty(sku, month, qty)
                for sku, month, qty in models.DemandBucket.objects.filter(source=source)
                .values_list('sku', 'month', 'qty')]
-    return demand_mod.get_demand_function(source)(buckets, on, window_months)
+    demand = demand_mod.get_demand_function(source)(buckets, on, window_months)
+    if buckets:
+        fg_skus = models.StockItem.objects.filter(kind=models.StockItem.FINISHED_GOOD).values_list('sku', flat=True)
+        demand = {sku: Decimal(0) for sku in fg_skus} | demand
+    return demand
 
 
 def load_inputs(settings_obj: models.PlanSettings, on: dt.date) -> PlanInputs:
