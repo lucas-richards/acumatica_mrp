@@ -23,10 +23,14 @@ cp .env.example .env && chmod 600 .env
 ## 2. Create the database (once, as postgres)
 
 ```bash
-sudo -u postgres psql -v mrp_password='choose-a-strong-password' -f /home/bc/westridgeApp_mrp/deploy/create_db.sql
+cd /home/bc/westridgeApp_mrp
+MRP_PW=$(.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(24))")
+sudo -u postgres psql -v mrp_password="$MRP_PW" -f deploy/create_db.sql
+echo "DATABASE_URL=postgres://mrp_user:$MRP_PW@localhost:5432/mrp"   # copy this line into .env
+unset MRP_PW
 ```
 
-Put the same password in `DATABASE_URL` in `.env`. This creates a new role `mrp_user` and database `mrp`. It doesn't touch `mydb` or the `lucas` role.
+The generated password is URL-safe, so it can go straight into `DATABASE_URL`. If you choose your own password, characters like `@ : / #` must be percent-encoded in the URL. This creates a new role `mrp_user` and database `mrp`. It doesn't touch `mydb` or the `lucas` role.
 
 ## 3. Apache
 

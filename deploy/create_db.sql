@@ -6,6 +6,12 @@
 
 \set ON_ERROR_STOP on
 
+\if :{?mrp_password}
+\else
+  \echo 'ERROR: no password given. Run with: sudo -u postgres psql -v mrp_password="..." -f deploy/create_db.sql'
+  \quit
+\endif
+
 CREATE ROLE mrp_user WITH LOGIN PASSWORD :'mrp_password';
 CREATE DATABASE mrp OWNER mrp_user ENCODING 'UTF8' TEMPLATE template0;
 
