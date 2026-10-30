@@ -21,3 +21,32 @@ document.addEventListener('click', function (event) {
   button.setAttribute('aria-expanded', open ? 'false' : 'true');
   row.hidden = open;
 });
+
+// "Refresh from Acumatica" is a normal form post that can take a couple of minutes:
+// show the loading overlay with an explanation until the new page arrives.
+document.addEventListener('submit', function (event) {
+  var form = event.target.closest('[data-refresh-form]');
+  var overlay = document.getElementById('plan-loading');
+  if (!form || !overlay) return;
+  overlay.querySelector('[data-loading-text]').textContent = 'Refreshing from Acumatica';
+  var note = overlay.querySelector('[data-loading-note]');
+  note.textContent = 'This usually takes 1 to 2 minutes. Please keep this page open.';
+  note.hidden = false;
+  overlay.classList.add('is-active');
+  var button = form.querySelector('button[type="submit"]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Refreshing…';
+  }
+});
+
+// If the browser restores this page from its back/forward cache, don't leave the overlay up.
+window.addEventListener('pageshow', function (event) {
+  if (!event.persisted) return;
+  var overlay = document.getElementById('plan-loading');
+  if (overlay) overlay.classList.remove('is-active');
+  document.querySelectorAll('[data-refresh-form] button[type="submit"]').forEach(function (button) {
+    button.disabled = false;
+    button.textContent = 'Refresh from Acumatica';
+  });
+});

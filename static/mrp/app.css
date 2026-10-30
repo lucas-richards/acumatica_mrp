@@ -74,13 +74,25 @@ h1 { font-size: 1.85rem; font-weight: 700; letter-spacing: -.01em; }
 .vendor-results:empty { display: none; }
 .vendor-results { margin-top: 12px; }
 
-/* Loading state while HTMX swaps the plan */
-.loading { position: fixed; inset: 0 0 auto 0; z-index: 20; pointer-events: none; }
-.loading-bar { display: block; height: 3px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 50% 100%; background-repeat: no-repeat; animation: loading-slide 1s linear infinite; }
-.loading-pill { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 999px; background: var(--navy); color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); }
-.spinner { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, .35); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+/* Loading overlay: shown while HTMX swaps the plan, and during "Refresh from Acumatica" */
+.loading { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+           background: rgba(243, 244, 247, .65); pointer-events: none; }
+.loading.htmx-request, .loading.is-active { pointer-events: auto; opacity: 1; }
+.loading-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px;
+               background: linear-gradient(90deg, transparent, var(--accent), transparent);
+               background-size: 50% 100%; background-repeat: no-repeat; animation: loading-slide 1s linear infinite; }
+.loading-card { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 28px 40px; max-width: min(420px, 90vw);
+                border-radius: 18px; background: var(--navy); color: #fff; text-align: center; box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
+.spinner { width: 52px; height: 52px; border: 5px solid rgba(255, 255, 255, .25); border-top-color: #fff;
+           border-radius: 50%; animation: spin .8s linear infinite; }
+.loading-title { font-size: 1.15rem; font-weight: 700; }
+.loading-note { color: #cdd5e4; font-size: .95rem; }
+.dots span { display: inline-block; animation: dot-bounce 1.2s infinite ease-in-out; }
+.dots span:nth-child(2) { animation-delay: .15s; }
+.dots span:nth-child(3) { animation-delay: .3s; }
 #plan-content.htmx-request { opacity: .45; pointer-events: none; transition: opacity .15s; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes dot-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-6px); opacity: 1; } }
 @keyframes loading-slide { from { background-position: -50% 0; } to { background-position: 150% 0; } }
 .chip { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 20px; border-radius: 999px; border: 1px solid #d5d9e1; background: #fff; color: var(--text); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
 .chip:hover { border-color: #9aa3b5; }
@@ -206,5 +218,5 @@ h1 { font-size: 1.85rem; font-weight: 700; letter-spacing: -.01em; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
-  .spinner, .loading-bar { animation-duration: 3s; }
+  .spinner, .loading-bar, .dots span { animation-duration: 3s; }
 }

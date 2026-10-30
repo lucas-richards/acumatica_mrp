@@ -80,6 +80,7 @@ class PlanPageTests(TestCase):
         self.assertContains(response, 'placeholder="Vendor name or ID"')
         self.assertNotContains(response, 'Find another vendor')
         self.assertContains(response, 'id="plan-loading"')
+        self.assertContains(response, 'class="spinner"')
 
         found = self.client.get(reverse('mrp:vendor_search'), {'q': 'tiny'})
         self.assertContains(found, 'Tiny Springs')
