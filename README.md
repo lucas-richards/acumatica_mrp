@@ -45,10 +45,10 @@ Open http://localhost:8001/ (westridgeApp's dev server uses 8000).
 ### Users and roles
 
 Everything requires a login. Each user needs one of two groups (they are created by the migrations):
-- **viewer**: can see the plan, expand rows, export CSV, download the calendar, and subscribe to the Monday email.
-- **planner**: everything a viewer can do, plus change the default cover/quantity mode, the reminder window and lead-time overrides, and press "Refresh from Acumatica".
+- **viewer**: can see the plan, filter by vendor, expand rows and export CSV.
+- **planner**: everything a viewer can do, plus set lead-time overrides and press "Refresh from Acumatica".
 
-Superusers count as planners. Add users and groups in `/admin/`. Users here are separate from westridgeApp users. To get the Monday email, a user needs an email address on their account.
+Superusers count as planners. Add users and groups in `/admin/`. Users here are separate from westridgeApp users.
 
 Every settings change is recorded with the user and the old and new values. You can see them on **Lead times & change log**, and in the admin.
 
@@ -129,7 +129,7 @@ The logic lives in `planning/mrp.py`. A month is 30 days.
 - embedded stock = Σ (FG on hand × qty per unit)
 - supply position = on hand + on order + embedded stock
 - months of supply = supply ÷ usage
-- target = lead time months + cover months (0–4)
+- target = lead time months + 2 months (fixed; every order covers the lead time plus at least 2 months)
 - needed = usage × target − supply
 - suggested qty = needed rounded up to the lot size (0 if needed ≤ 0)
 - order-by date = today + (months of supply − lead time months) × 30 days, rounded down to a whole day. "Now" if it is today or earlier.
@@ -137,7 +137,7 @@ The logic lives in `planning/mrp.py`. A month is 30 days.
   - **Stockout risk** if months of supply < lead time
   - **Order soon** if months of supply < target
   - otherwise **Covered**
-- **Match last PO** mode: when an order is needed, suggest the previous PO quantity. If there is no PO history, fall back to the lot-rounded quantity and flag it.
+- months on hand at arrival = (supply position + suggested qty) ÷ usage − lead time months, assuming the order is placed today. It is at least 2 for every component with usage.
 
 Edge cases:
 - No usage means infinite cover and no order-by date. It is flagged.
@@ -148,9 +148,11 @@ FG demand is a swappable function (`planning/demand.py`):
 - `open_sales_orders`
 - `forecast`
 
-## Reminders
+## Reminder emails (optional, not on the page)
 
-`send_order_reminders` checks each vendor's earliest order-by date for components that need ordering. If that date is within the reminder window (7/14/30/60 days, set on the page) or already past, it emails `MRP_REMINDER_TO`. A vendor is not emailed again within 7 days unless it becomes more urgent (Reminder active → Order now).
+The reminder section was removed from the page. The command still exists if you want emails later:
+
+`send_order_reminders` checks each vendor's earliest order-by date for components that need ordering. If that date is within the reminder window (30 days by default, stored in plan settings) or already past, it emails `MRP_REMINDER_TO`. A vendor is not emailed again within 7 days unless it becomes more urgent (Reminder active → Order now).
 
 `--weekly` also sends the Monday digest to subscribed users. `--dry-run` prints the emails instead of sending them.
 

@@ -78,6 +78,13 @@ class SampleDataTests(unittest.TestCase):
             self.assertEqual(by_sku[sku].suggested_qty, D(0), sku)
             self.assertEqual(by_sku[sku].status, Status.COVERED, sku)
 
+    def test_months_at_arrival_cover_at_least_two_months(self):
+        _, plans, by_sku = run(cover=2)
+        # COMP-2250: (200 supply + 500 ordered) / 110 per month - 4 months lead time = 2.36
+        self.assertEqual(round(by_sku['COMP-2250'].months_at_arrival, 2), D('2.36'))
+        for p in plans:
+            self.assertGreaterEqual(p.months_at_arrival, 2, p.sku)
+
     def test_order_by_dates(self):
         _, _, by_sku = run()
         self.assertEqual(by_sku['COMP-2310'].order_by_date, dt.date(2026, 11, 17))

@@ -48,23 +48,24 @@ class PlanPageTests(TestCase):
         self.client.force_login(make_user('nobody'))
         self.assertEqual(self.client.get(reverse('mrp:plan')).status_code, 403)
 
-    def test_plan_page_matches_mockup(self, _today):
+    def test_plan_page(self, _today):
         self.client.force_login(self.viewer)
         response = self.client.get(reverse('mrp:plan'))
         self.assertEqual(response.status_code, 200)
-        for text in ['Sample data', 'of 11 shown', '$10,195', '2 already late to order', 'COMP-2250, COMP-4408',
-                     'Reminder active', 'Order by Nov 3', 'Order by Dec 14',
-                     '+120 in FG stock', 'Stockout risk']:
+        for text in ['Sample data', '+120 in FG stock', 'Stockout risk', 'Months on hand at arrival',
+                     'lead time + 2 months']:
             self.assertContains(response, text)
-        self.assertNotContains(response, 'Refresh from Acumatica')   # planners only
-        self.assertNotContains(response, 'Create PO')
+        # Removed from the page: summary tiles, cover/quantity choices, reminders
+        for text in ['Components to order', 'Cover after new order arrives', 'Order quantities',
+                     'Order reminders by vendor', 'Remind me', 'Refresh from Acumatica', 'Create PO']:
+            self.assertNotContains(response, text)
 
-    def test_reminder_cards_only_for_vendors_with_orders_due(self, _today):
+    def test_months_at_arrival_column(self, _today):
         self.client.force_login(self.viewer)
         response = self.client.get(reverse('mrp:plan'))
-        cards = [r.vendor.name for r in response.context['due_reminders']]
-        self.assertEqual(cards, ['Pacific Drives', 'Cascade Cable Co', 'Northwest Metals', 'Inland Fasteners'])
-        self.assertNotContains(response, 'Nothing to order yet')
+        bearing = next(p for p in response.context['result'].plans if p.sku == 'COMP-2250')
+        self.assertEqual(round(bearing.months_at_arrival, 1), D('2.4'))
+        self.assertContains(response, '2.4 mo')
 
     def test_top_five_vendor_chips_and_search(self, _today):
         models.Vendor.objects.create(vendor_id='TINY', name='Tiny Springs')
@@ -78,9 +79,9 @@ class PlanPageTests(TestCase):
         self.assertEqual(response.context['more_vendors'], 1)
         self.assertContains(response, 'Find another vendor')
 
-        found = self.client.get(reverse('mrp:vendor_search'), {'q': 'tiny', 'cover': 1})
+        found = self.client.get(reverse('mrp:vendor_search'), {'q': 'tiny'})
         self.assertContains(found, 'Tiny Springs')
-        self.assertContains(found, 'vendor=TINY&amp;cover=1')
+        self.assertContains(found, '?vendor=TINY')
         self.assertContains(self.client.get(reverse('mrp:vendor_search'), {'q': 'zzz'}), 'No vendor matches')
 
         # A vendor picked from search shows as the active chip
@@ -93,16 +94,16 @@ class PlanPageTests(TestCase):
                                             order_date=ANCHOR, qty=1)
         self.assertEqual(services.purchasing_vendors()[0], ('SUMSEA', 'Summit Seals'))
 
-    def test_filters(self, _today):
+    def test_vendor_filter(self, _today):
         self.client.force_login(self.viewer)
-        response = self.client.get(reverse('mrp:plan'), {'vendor': 'NWMETL', 'cover': 0, 'mode': 'cover'})
+        response = self.client.get(reverse('mrp:plan'), {'vendor': 'NWMETL'})
         plans = response.context['result'].plans
         self.assertEqual({p.component.vendor_id for p in plans}, {'NWMETL'})
-        self.assertEqual(response.context['result'].summary.components_to_order, 0)
+        self.assertEqual(response.context['result'].summary.components_to_order, 2)
 
-    def test_bad_filter_values_fall_back(self, _today):
+    def test_cover_and_mode_are_fixed(self, _today):
         self.client.force_login(self.viewer)
-        response = self.client.get(reverse('mrp:plan'), {'vendor': 'NOPE', 'cover': '9', 'mode': 'x'})
+        response = self.client.get(reverse('mrp:plan'), {'vendor': 'NOPE', 'cover': '0', 'mode': 'last_po'})
         options = response.context['options']
         self.assertEqual((options.vendor_id, options.cover_months, options.qty_mode.value), (None, 2, 'cover'))
 
@@ -110,7 +111,7 @@ class PlanPageTests(TestCase):
         self.client.force_login(self.viewer)
         response = self.client.get(reverse('mrp:plan'), HTTP_HX_REQUEST='true')
         self.assertNotContains(response, '<html')
-        self.assertContains(response, 'Components to order')
+        self.assertContains(response, 'Months on hand at arrival')
 
     def test_breakdown(self, _today):
         self.client.force_login(self.viewer)
@@ -137,37 +138,9 @@ class SettingsTests(TestCase):
 
     def test_viewer_cannot_change_settings(self, _today):
         self.client.force_login(self.viewer)
-        self.assertEqual(self.client.post(reverse('mrp:save_reminder_days'), {'reminder_days': 14}).status_code, 403)
-        self.assertEqual(self.client.post(reverse('mrp:save_defaults'), {'cover': 1, 'mode': 'cover'}).status_code, 403)
         self.assertEqual(self.client.post(reverse('mrp:lead_times'),
                                           {'sku': 'COMP-2250', 'lead_time_days': 10}).status_code, 403)
         self.assertEqual(self.client.post(reverse('mrp:refresh')).status_code, 403)
-
-    def test_reminder_days_change_is_logged(self, _today):
-        self.client.force_login(self.planner)
-        self.client.post(reverse('mrp:save_reminder_days'), {'reminder_days': 60})
-        self.assertEqual(models.PlanSettings.load().reminder_days, 60)
-        log = models.SettingsChangeLog.objects.get()
-        self.assertEqual((log.user, log.setting, log.old_value, log.new_value), (self.planner, 'reminder_days', '30', '60'))
-
-    def test_invalid_reminder_days(self, _today):
-        self.client.force_login(self.planner)
-        self.client.post(reverse('mrp:save_reminder_days'), {'reminder_days': 45})
-        self.assertEqual(models.PlanSettings.load().reminder_days, 30)
-        self.assertFalse(models.SettingsChangeLog.objects.exists())
-
-    def test_save_defaults_logged(self, _today):
-        self.client.force_login(self.planner)
-        self.client.post(reverse('mrp:save_defaults'), {'cover': 3, 'mode': 'last_po'})
-        s = models.PlanSettings.load()
-        self.assertEqual((s.cover_months, s.qty_mode), (3, 'last_po'))
-        self.assertEqual(set(models.SettingsChangeLog.objects.values_list('setting', flat=True)),
-                         {'cover_months', 'qty_mode'})
-
-    def test_save_defaults_rejects_out_of_range(self, _today):
-        self.client.force_login(self.planner)
-        self.client.post(reverse('mrp:save_defaults'), {'cover': 7, 'mode': 'cover'})
-        self.assertEqual(models.PlanSettings.load().cover_months, 2)
 
     def test_lead_time_override_changes_plan_and_is_logged(self, _today):
         self.client.force_login(self.planner)
@@ -197,20 +170,8 @@ class SettingsTests(TestCase):
 
     def test_unsafe_next_redirect_ignored(self, _today):
         self.client.force_login(self.planner)
-        response = self.client.post(reverse('mrp:save_reminder_days'),
-                                    {'reminder_days': 14, 'next': 'https://evil.example.com/'})
+        response = self.client.post(reverse('mrp:refresh'), {'next': 'https://evil.example.com/'})
         self.assertEqual(response['Location'], reverse('mrp:plan'))
-
-    def test_digest_toggle(self, _today):
-        self.client.force_login(self.viewer)
-        self.client.post(reverse('mrp:toggle_digest'))
-        self.assertFalse(models.WeeklyDigestSubscription.objects.exists())   # viewer has no email
-        self.viewer.email = 'vic@example.com'
-        self.viewer.save()
-        self.client.post(reverse('mrp:toggle_digest'))
-        self.assertTrue(models.WeeklyDigestSubscription.objects.filter(user=self.viewer).exists())
-        self.client.post(reverse('mrp:toggle_digest'))
-        self.assertFalse(models.WeeklyDigestSubscription.objects.exists())
 
 
 @mock.patch('mrp.services.today', return_value=ANCHOR)
@@ -227,8 +188,9 @@ class ExportTests(TestCase):
         vendors = [r[0] for r in data]
         self.assertEqual(vendors, sorted(vendors))
         bearing = next(r for r in data if r[2] == 'COMP-2250')
-        self.assertEqual((bearing[4], bearing[13], bearing[16], bearing[18]), ('Stockout risk', 'Now', '500', '2100'))
-        subtotals = {r[0]: r[18] for r in rows if len(r) > 2 and r[2] == 'SUBTOTAL'}
+        self.assertEqual((bearing[4], bearing[13], bearing[16], bearing[17], bearing[19]),
+                         ('Stockout risk', 'Now', '500', '2.4', '2100'))
+        subtotals = {r[0]: r[19] for r in rows if len(r) > 2 and r[2] == 'SUBTOTAL'}
         self.assertEqual(subtotals['Pacific Drives'], '5950')
         self.assertEqual(sum(D(v) for v in subtotals.values()), D('10195'))
 
@@ -236,14 +198,6 @@ class ExportTests(TestCase):
         models.StockItem.objects.filter(sku='COMP-2250').update(description='=HYPERLINK("x")')
         content = self.client.get(reverse('mrp:export_csv')).content.decode()
         self.assertIn("'=HYPERLINK", content)
-
-    def test_calendar(self, _today):
-        response = self.client.get(reverse('mrp:calendar_ics'))
-        body = response.content.decode()
-        self.assertEqual(body.count('BEGIN:VEVENT'), 4)
-        self.assertIn('DTSTART;VALUE=DATE:20261103', body)
-        self.assertIn('TRIGGER:-P30D', body)
-        self.assertIn('Order from Pacific Drives (overdue)', body)
 
 
 class LoaderTests(TestCase):

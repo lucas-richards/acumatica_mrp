@@ -70,8 +70,10 @@ h1 { font-size: 1.85rem; font-weight: 700; letter-spacing: -.01em; }
 .filters { display: grid; gap: 18px; }
 .filter-row { display: flex; flex-wrap: wrap; gap: 18px 48px; }
 .chips { display: flex; flex-wrap: wrap; gap: 10px; }
-.vendor-search { display: grid; gap: 6px; margin-top: 14px; max-width: 520px; }
-.vendor-search label { font-weight: 600; font-size: .9rem; }
+.vendor-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px 32px; }
+.vendor-row > .filter-group { flex: 1 1 520px; min-width: 0; }
+.vendor-search { flex: 0 1 320px; display: grid; gap: 6px; align-content: start; }
+.vendor-search .label { margin-bottom: 4px; }
 .vendor-search input { min-height: 44px; padding: 8px 14px; border: 1px solid #b9c0cc; border-radius: 999px; font: inherit; background: #fff; color: var(--text); }
 .vendor-results:empty { display: none; }
 .vendor-results { margin-top: 4px; }

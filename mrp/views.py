@@ -8,24 +8,20 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from acumatica.rest import AcumaticaError
-from planning.mrp import MAX_COVER_MONTHS
-from planning.models import QtyMode
-from planning.reminders import REMINDER_DAY_CHOICES
 
 from . import exports, loaders, models, services, sync
 from .forms import LeadTimeOverrideForm
 from .roles import is_planner, planner_required, viewer_required
 
-COVER_CHOICES = [(0, 'Lead time only')] + [(n, f'+{n} month' + ('s' if n > 1 else '')) for n in range(1, MAX_COVER_MONTHS + 1)]
-QTY_MODE_CHOICES = models.PlanSettings.QTY_MODE_CHOICES
 TOP_VENDOR_CHIPS = 5
 VENDOR_SEARCH_LIMIT = 12
 
 
 def _query(options, **changes):
-    params = {'vendor': options.vendor_id or '', 'cover': options.cover_months, 'mode': options.qty_mode.value}
+    params = {'vendor': options.vendor_id or ''}
     params.update(changes)
-    return '?' + urlencode({k: v for k, v in params.items() if v not in ('', None)})
+    params = {k: v for k, v in params.items() if v not in ('', None)}
+    return '?' + urlencode(params) if params else ''
 
 
 def _plan_context(request):
@@ -43,20 +39,12 @@ def _plan_context(request):
         'settings': settings_obj,
         'options': options,
         'is_planner': is_planner(request.user),
-        'is_default_view': (options.cover_months == settings_obj.cover_months
-                            and options.qty_mode.value == settings_obj.qty_mode),
         'vendor_chips': [('', 'All vendors', _query(options, vendor=''))]
                         + [(vid, name, _query(options, vendor=vid)) for vid, name in top],
         'more_vendors': len(vendors) - min(len(vendors), TOP_VENDOR_CHIPS),
-        'due_reminders': [r for r in result.reminders if r.components_due],
-        'cover_chips': [(n, label, _query(options, cover=n)) for n, label in COVER_CHOICES],
-        'mode_chips': [(value, label, _query(options, mode=value)) for value, label in QTY_MODE_CHOICES],
-        'reminder_choices': REMINDER_DAY_CHOICES,
         'query': _query(options),
         'last_sync': services.last_sync(),
         'acumatica_configured': sync.acumatica_configured(),
-        'subscribed': models.WeeklyDigestSubscription.objects.filter(user=request.user).exists(),
-        'cover_target_mode': options.qty_mode == QtyMode.COVER_TARGET,
     }
 
 
@@ -110,76 +98,11 @@ def export_csv(request):
     return response
 
 
-@require_GET
-@viewer_required
-def calendar_ics(request):
-    result = services.build_plan(services.default_options())
-    response = HttpResponse(exports.order_by_calendar(result, request.build_absolute_uri(reverse('mrp:plan'))),
-                            content_type='text/calendar; charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="order-by-dates.ics"'
-    return response
-
-
 def _back(request):
     target = request.POST.get('next') or reverse('mrp:plan')
     if not target.startswith('/') or target.startswith('//'):
         target = reverse('mrp:plan')
     return redirect(target)
-
-
-@require_POST
-@planner_required
-def save_defaults(request):
-    settings_obj = models.PlanSettings.load()
-    try:
-        cover = int(request.POST.get('cover', ''))
-        mode = QtyMode(request.POST.get('mode', ''))
-    except ValueError:
-        messages.error(request, 'Invalid planning defaults.')
-        return _back(request)
-    if not 0 <= cover <= MAX_COVER_MONTHS:
-        messages.error(request, 'Cover months must be between 0 and 4.')
-        return _back(request)
-    models.SettingsChangeLog.record(request.user, 'cover_months', settings_obj.cover_months, cover)
-    models.SettingsChangeLog.record(request.user, 'qty_mode', settings_obj.qty_mode, mode.value)
-    settings_obj.cover_months = cover
-    settings_obj.qty_mode = mode.value
-    settings_obj.save()
-    messages.success(request, 'Saved as the default view and for reminder emails.')
-    return _back(request)
-
-
-@require_POST
-@planner_required
-def save_reminder_days(request):
-    settings_obj = models.PlanSettings.load()
-    try:
-        days = int(request.POST.get('reminder_days', ''))
-    except ValueError:
-        days = None
-    if days not in REMINDER_DAY_CHOICES:
-        messages.error(request, 'Choose 7, 14, 30 or 60 days.')
-        return _back(request)
-    models.SettingsChangeLog.record(request.user, 'reminder_days', settings_obj.reminder_days, days)
-    settings_obj.reminder_days = days
-    settings_obj.save()
-    messages.success(request, f'Reminders now start {days} days before each order-by date.')
-    return _back(request)
-
-
-@require_POST
-@viewer_required
-def toggle_digest(request):
-    sub = models.WeeklyDigestSubscription.objects.filter(user=request.user)
-    if sub.exists():
-        sub.delete()
-        messages.success(request, 'You will no longer get the Monday email.')
-    elif not request.user.email:
-        messages.error(request, 'Your account has no email address. Ask an administrator to add one.')
-    else:
-        models.WeeklyDigestSubscription.objects.create(user=request.user)
-        messages.success(request, f'You will get this list every Monday at {request.user.email}.')
-    return _back(request)
 
 
 @require_POST

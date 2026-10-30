@@ -91,24 +91,17 @@ def build_plan(options: PlanOptions, settings_obj: Optional[models.PlanSettings]
     )
 
 
+# Orders always cover the lead time plus this many months after the order arrives.
+COVER_MONTHS = 2
+
+
 def default_options(settings_obj: Optional[models.PlanSettings] = None) -> PlanOptions:
-    settings_obj = settings_obj or models.PlanSettings.load()
-    return PlanOptions(cover_months=settings_obj.cover_months, qty_mode=QtyMode(settings_obj.qty_mode))
+    return PlanOptions(cover_months=COVER_MONTHS, qty_mode=QtyMode.COVER_TARGET)
 
 
 def options_from_query(params, settings_obj: models.PlanSettings) -> PlanOptions:
-    """Read vendor/cover/mode from GET params, falling back to saved defaults on bad input."""
+    """Only the vendor filter comes from the query string; cover and quantity mode are fixed."""
     options = default_options(settings_obj)
-    try:
-        cover = int(params.get('cover', options.cover_months))
-        if 0 <= cover <= mrp.MAX_COVER_MONTHS:
-            options.cover_months = cover
-    except (TypeError, ValueError):
-        pass
-    try:
-        options.qty_mode = QtyMode(params.get('mode', options.qty_mode.value))
-    except ValueError:
-        pass
     vendor = (params.get('vendor') or '').strip()
     if vendor and models.Vendor.objects.filter(vendor_id=vendor).exists():
         options.vendor_id = vendor

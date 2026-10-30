@@ -118,6 +118,14 @@ class ComponentPlan:
     def on_hand_and_order(self) -> Decimal:
         return self.component.on_hand + self.component.on_order
 
+    @property
+    def months_at_arrival(self) -> Optional[Decimal]:
+        """Months of inventory left when an order placed today arrives (after the lead time),
+        including the suggested quantity. None when there is no usage."""
+        if self.usage_per_month <= 0:
+            return None
+        return (self.supply_position + self.suggested_qty) / self.usage_per_month - self.lead_time_months
+
 
 @dataclass
 class PlanSummary:
