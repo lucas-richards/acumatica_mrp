@@ -1,0 +1,12 @@
+{% load mrp_format %}{% autoescape off %}{{ r.vendor.name }}: {% if r.order_now %}order now{% if r.days_until < 0 %} ({{ r.days_until|stringformat:"d"|cut:"-" }} days past the order-by date){% endif %}{% else %}order by {{ r.next_order_by|date:"D, M j" }} ({{ r.days_until }} days){% endif %}.
+
+Lead time: {{ r.vendor.lead_time_days|lead_time }}. {{ r.components_due }} component{{ r.components_due|pluralize }} due:
+{% for p in plans %}
+- {{ p.sku }} {{ p.component.description }}
+  Status: {{ p.status.value }} · {{ p.months_of_supply|months }} months of supply (target {{ p.target_months|months }})
+  Order by: {% if p.order_now %}Now{% else %}{{ p.order_by_date|date:"M j" }}{% endif %} · Suggested qty: {{ p.suggested_qty|qty }} · Est. cost: {{ p.estimated_cost|money }}
+{% endfor %}
+Open the planner: {{ site_url }}
+
+Sent by the Westridge MRP planner (cover +{{ result.options.cover_months }} months, reminder {{ result.reminder_days }} days before).
+{% endautoescape %}
