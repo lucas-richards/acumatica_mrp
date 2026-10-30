@@ -13,10 +13,16 @@ from .roles import is_planner, planner_required, viewer_required
 
 TOP_VENDOR_CHIPS = 5
 VENDOR_SEARCH_LIMIT = 12
+COMPONENTS, FINISHED_GOODS = 'components', 'fg'
+VIEW_CHOICES = [(COMPONENTS, 'Components'), (FINISHED_GOODS, 'Finished goods')]
 
 
-def _query(options, **changes):
-    params = {'vendor': options.vendor_id or ''}
+def _view(params) -> str:
+    return FINISHED_GOODS if params.get('view') == FINISHED_GOODS else COMPONENTS
+
+
+def _query(options, view=COMPONENTS, **changes):
+    params = {'view': view if view != COMPONENTS else '', 'vendor': options.vendor_id or ''}
     params.update(changes)
     params = {k: v for k, v in params.items() if v not in ('', None)}
     return '?' + urlencode(params) if params else ''
@@ -26,6 +32,7 @@ def _plan_context(request):
     settings_obj = models.PlanSettings.load()
     options = services.options_from_query(request.GET, settings_obj)
     result = services.build_plan(options, settings_obj)
+    view = _view(request.GET)
     vendors = services.purchasing_vendors()
     top = vendors[:TOP_VENDOR_CHIPS]
     if options.vendor_id and options.vendor_id not in dict(top):
@@ -37,10 +44,13 @@ def _plan_context(request):
         'settings': settings_obj,
         'options': options,
         'is_planner': is_planner(request.user),
-        'vendor_chips': [('', 'All vendors', _query(options, vendor=''))]
-                        + [(vid, name, _query(options, vendor=vid)) for vid, name in top],
+        'view': view,
+        'view_chips': [(value, label, _query(options, value)) for value, label in VIEW_CHOICES],
+        'fg_rows': services.finished_goods_view(result) if view == FINISHED_GOODS else None,
+        'vendor_chips': [('', 'All vendors', _query(options, view, vendor=''))]
+                        + [(vid, name, _query(options, view, vendor=vid)) for vid, name in top],
         'more_vendors': len(vendors) - min(len(vendors), TOP_VENDOR_CHIPS),
-        'query': _query(options),
+        'query': _query(options, view),
         'last_sync': services.last_sync(),
         'acumatica_configured': sync.acumatica_configured(),
         'running_sync': sync.running_sync(),
@@ -68,7 +78,7 @@ def vendor_search(request):
                    if q in name.lower() or q in vid.lower()][:VENDOR_SEARCH_LIMIT]
     return render(request, 'mrp/_vendor_results.html', {
         'q': q,
-        'results': [(vid, name, _query(options, vendor=vid)) for vid, name in matches],
+        'results': [(vid, name, _query(options, _view(request.GET), vendor=vid)) for vid, name in matches],
         'limit': VENDOR_SEARCH_LIMIT,
     })
 
@@ -83,6 +93,19 @@ def breakdown(request, sku):
     if plan_row is None:
         raise Http404('Unknown component')
     return render(request, 'mrp/_breakdown.html', {'plan': plan_row})
+
+
+@require_GET
+@viewer_required
+def fg_breakdown(request, sku):
+    """HTMX: purchased components of one finished good (vendor filter applied)."""
+    settings_obj = models.PlanSettings.load()
+    options = services.options_from_query(request.GET, settings_obj)
+    result = services.build_plan(options, settings_obj)
+    row = next((r for r in services.finished_goods_view(result) if r.sku == sku), None)
+    if row is None:
+        raise Http404('Unknown finished good')
+    return render(request, 'mrp/_fg_breakdown.html', {'row': row})
 
 
 @require_GET

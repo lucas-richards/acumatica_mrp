@@ -84,7 +84,8 @@ DATASETS: dict[str, tuple[type, dict[str, tuple[Any, bool]]]] = {
     'stock_items': (models.StockItem, {
         'sku': (_str, True), 'description': (_opt_str, False), 'item_class': (_opt_str, False),
         'kind': (_kind, True), 'uom': (_opt_str, False), 'lot_size': (_decimal, False),
-        'qty_available': (_decimal, False)}),
+        'qty_available': (_decimal, False), 'item_type': (_opt_str, False),
+        'replenishment_source': (_opt_str, False)}),
     'on_hand': (models.OnHand, {'sku': (_str, True), 'warehouse': (_str, True), 'qty': (_decimal, True)}),
     'open_po_lines': (models.OpenPOLine, {
         'order_nbr': (_str, True), 'line_nbr': (_int, True), 'sku': (_str, True), 'vendor_id': (_str, True),

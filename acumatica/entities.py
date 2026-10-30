@@ -229,6 +229,15 @@ def explode(direct: dict[str, list[tuple[str, Decimal]]], warnings: list[str]) -
     return {parent: walk(parent, ()) for parent in direct}
 
 
+def replenishment_source(item: dict) -> str:
+    """Source from the Inventory Planning tab: 'Manufacturing', 'Purchase', 'Mixed' when the
+    item's replenishment classes disagree, or '' when not set."""
+    sources = {(p.get('Source') or '').strip() for p in item.get('ReplenishmentParameters') or []} - {''}
+    if len(sources) > 1:
+        return 'Mixed'
+    return sources.pop() if sources else ''
+
+
 def fetch_available(client: Client, gi_name: str, warnings: list[str]) -> Optional[dict[str, Decimal]]:
     """Available quantity per item (summed over warehouses, base unit) from a Generic Inquiry
     with SKU, Warehouse and Available columns. None if it can't be read; the planner then
@@ -257,6 +266,7 @@ def fetch_available(client: Client, gi_name: str, warnings: list[str]) -> Option
 
 STOCK_ITEM_SELECT = [
     'InventoryID', 'Description', 'ItemClass', 'ItemType', 'ItemStatus', 'BaseUOM', 'LastCost',
+    'ReplenishmentParameters/Source',
     'UOMConversions/FromUOM', 'UOMConversions/ToUOM', 'UOMConversions/MultiplyOrDivide',
     'UOMConversions/ConversionFactor',
     'WarehouseDetails/WarehouseID', 'WarehouseDetails/QtyOnHand',
@@ -277,7 +287,8 @@ def fetch_all(client: Client, options: FetchOptions) -> FetchResult:
     # 2. Stock items with units, on hand and vendor settings
     items = {(r.get('InventoryID') or '').strip(): r for r in client.fetch(
         'default', 'StockItem', filter="ItemStatus ne 'Inactive'",
-        expand=['UOMConversions', 'WarehouseDetails', 'VendorDetails'], select=STOCK_ITEM_SELECT)}
+        expand=['UOMConversions', 'WarehouseDetails', 'VendorDetails', 'ReplenishmentParameters'],
+        select=STOCK_ITEM_SELECT)}
     units = Units()
     for sku, item in items.items():
         units.add_item(sku, item.get('BaseUOM'), item.get('UOMConversions'))
@@ -326,6 +337,8 @@ def fetch_all(client: Client, options: FetchOptions) -> FetchResult:
         'uom': items[sku].get('BaseUOM') or '',
         'lot_size': None,
         'qty_available': None if available is None else available.get(sku, Decimal(0)),
+        'item_type': items[sku].get('ItemType') or '',
+        'replenishment_source': replenishment_source(items[sku]),
     } for sku in sorted(relevant)]
 
     data['on_hand'] = [

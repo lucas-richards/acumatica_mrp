@@ -1,0 +1,40 @@
+{% load mrp_format %}
+<div class="breakdown">
+  <p class="breakdown-title">Purchased components in {{ row.sku }}</p>
+  <div class="table-scroll">
+    <table class="breakdown-table">
+      <thead>
+        <tr>
+          <th scope="col">Component</th>
+          <th scope="col" class="num">Qty per unit</th>
+          <th scope="col" class="num">Usage / mo (all FGs)</th>
+          <th scope="col">Lead time</th>
+          <th scope="col" class="num">Available</th>
+          <th scope="col" class="num">On order</th>
+          <th scope="col" class="num">Months of supply</th>
+          <th scope="col">Order by</th>
+          <th scope="col" class="num">Order qty</th>
+          <th scope="col" class="num">Months left when an order arrives</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in row.components %}{% with p=c.plan %}
+        <tr>
+          <th scope="row"><span class="sku">{{ p.sku }}</span> · {{ p.component.description }}<span class="vendor-name">{{ p.component.vendor_name|default:"No vendor" }}</span></th>
+          <td class="num">{{ c.qty_per|qty:4 }}</td>
+          <td class="num">{{ p.usage_per_month|qty }}</td>
+          <td>{{ p.component.lead_time_days|lead_time }}</td>
+          <td class="num">{{ p.component.on_hand|qty }}</td>
+          <td class="num">{% if p.component.on_order %}{{ p.component.on_order|qty }}{% if p.component.on_order_since %}<span class="sub">since {{ p.component.on_order_since|date:"M j, Y" }}</span>{% endif %}{% else %}<span class="muted">0</span>{% endif %}</td>
+          <td class="num">{{ p.months_of_supply|months }}</td>
+          <td class="order-by">{% if p.order_by_date is None %}<span class="muted">—</span>{% elif p.order_now %}<span class="text-danger strong">Now</span>{% else %}{{ p.order_by_date|date:"M j" }}{% endif %}</td>
+          <td class="num strong">{% if p.suggested_qty %}{{ p.suggested_qty|qty }}{% else %}<span class="muted">0</span>{% endif %}</td>
+          <td class="num">{% if p.months_at_arrival is None %}<span class="muted">—</span>{% elif p.months_at_arrival < 0 %}<span class="text-danger strong">{{ p.months_at_arrival|months }} mo</span>{% else %}{{ p.months_at_arrival|months }} mo{% endif %}</td>
+          <td><span class="pill pill-{{ p.status|status_class }}">{{ p.status.value }}</span></td>
+        </tr>
+        {% endwith %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

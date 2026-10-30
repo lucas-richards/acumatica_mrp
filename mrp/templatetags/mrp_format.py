@@ -16,7 +16,7 @@ def qty(value, places=0):
     """Quantity with thousands separators; shows decimals only when needed."""
     if value is None:
         return '—'
-    d = _q(value, 2)
+    d = _q(value, max(2, int(places)))
     if d == d.to_integral_value():
         return f'{int(d):,}'
     return f'{d:,.{max(int(places), 1)}f}'.rstrip('0').rstrip('.')

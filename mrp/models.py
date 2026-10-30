@@ -42,6 +42,9 @@ class StockItem(models.Model):
     lot_size = models.DecimalField(**QTY, null=True, blank=True)
     # Available quantity across warehouses (Acumatica's "Available"); null when not synced
     qty_available = models.DecimalField(**QTY, null=True, blank=True)
+    item_type = models.CharField(max_length=30, blank=True)            # Finished Good, Subassembly, Component Part
+    # Inventory Planning tab "Source": Manufacturing, Purchase, Mixed (classes disagree) or blank
+    replenishment_source = models.CharField(max_length=20, blank=True)
 
     class Meta:
         ordering = ['sku']

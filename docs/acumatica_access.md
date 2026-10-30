@@ -37,6 +37,13 @@ The Forecast screen (AM202000) is not available to this user, so the **forecast*
 
 Only items that appear in a BOM are kept.
 
+**Purchased or manufactured.** The Source on each stock item's Inventory Planning tab decides whether a component belongs on the purchasing plan:
+- **Manufacturing**: made in-house, so it is left off the purchasing plan.
+- **Purchase**: planned as normal.
+- **Both**, under different replenishment classes: kept on the plan and flagged "Purchase or manufacture" so someone can check it.
+
+Items of type Subassembly are not listed in the Finished goods view; their components appear under the finished goods that use them.
+
 **Item-vendor settings** (Stock Items → Vendors tab, active lines only):
 - **Lead time** = Lead Time (days) + Add. Lead Time (days). If blank, the vendor's lead time is used. A planner override in the app beats both.
 - **Cost** = Last Vendor Price converted from the purchase unit to the base unit. If there's no price, the item's Last Cost is used.

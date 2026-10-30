@@ -250,6 +250,22 @@ class FetchAllTests(unittest.TestCase):
         result, _ = run()
         self.assertEqual(result.data['open_po_lines'][0]['order_date'], dt.date(2026, 9, 1))
 
+    def test_item_type_and_replenishment_source(self):
+        records = base_records()
+        for item in records['StockItem']:
+            if item['InventoryID'] == 'C-PLATE':
+                item['ReplenishmentParameters'] = [{'Source': 'Manufacturing'}]
+            if item['InventoryID'] == 'C-BOLT':
+                item['ReplenishmentParameters'] = [{'Source': 'Purchase'}, {'Source': 'Manufacturing'}]
+            if item['InventoryID'] == 'SA-1':
+                item['ItemType'] = 'Subassembly'
+        result, _ = run(records)
+        rows = {r['sku']: r for r in result.data['stock_items']}
+        self.assertEqual(rows['C-PLATE']['replenishment_source'], 'Manufacturing')
+        self.assertEqual(rows['C-BOLT']['replenishment_source'], 'Mixed')
+        self.assertEqual(rows['C-OIL']['replenishment_source'], '')
+        self.assertEqual(rows['SA-1']['item_type'], 'Subassembly')
+
     def test_months_ago(self):
         self.assertEqual(entities.months_ago(dt.date(2026, 2, 14), 3), dt.date(2025, 11, 1))
 

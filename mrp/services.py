@@ -13,7 +13,7 @@ from planning import demand as demand_mod
 from planning import mrp
 from planning.demand import MonthlyQty
 from planning.inputs import PlanInputs, build_plan_inputs
-from planning.models import ComponentPlan, PlanSummary, QtyMode
+from planning.models import STATUS_RANK, ComponentPlan, Flag, PlanSummary, QtyMode, Status
 from planning.reminders import VendorReminder, vendor_reminders
 
 from . import models
@@ -77,6 +77,13 @@ def build_plan(options: PlanOptions, settings_obj: Optional[models.PlanSettings]
     inputs = load_inputs(settings_obj, on)
     all_plans = mrp.plan_components(inputs.components, inputs.bom_lines, inputs.finished_goods,
                                     options.cover_months, options.qty_mode, on)
+    # Components replenished by manufacturing (Inventory Planning "Source") are not purchased
+    sources = dict(models.StockItem.objects.filter(kind=models.StockItem.COMPONENT)
+                   .values_list('sku', 'replenishment_source'))
+    all_plans = [p for p in all_plans if sources.get(p.sku) != MANUFACTURING]
+    for p in all_plans:
+        if sources.get(p.sku) == MIXED:
+            p.flags.add(Flag.MIXED_SOURCE)
     plans = [p for p in all_plans if not options.vendor_id or p.component.vendor_id == options.vendor_id]
     return PlanResult(
         options=options,
@@ -93,6 +100,10 @@ def build_plan(options: PlanOptions, settings_obj: Optional[models.PlanSettings]
 
 # Orders always cover the lead time plus this many months after the order arrives.
 COVER_MONTHS = 2
+
+# Values of StockItem.replenishment_source
+MANUFACTURING = 'Manufacturing'
+MIXED = 'Mixed'
 
 
 def default_options(settings_obj: Optional[models.PlanSettings] = None) -> PlanOptions:
@@ -116,7 +127,7 @@ def purchasing_vendors() -> list[tuple[str, str]]:
     """(vendor_id, name) of vendors that are the planning vendor for at least one component,
     most used first: by PO lines in the synced history, then by number of components supplied."""
     component_skus = set(models.StockItem.objects.filter(kind=models.StockItem.COMPONENT)
-                         .values_list('sku', flat=True))
+                         .exclude(replenishment_source=MANUFACTURING).values_list('sku', flat=True))
     chosen: dict[str, tuple[bool, str]] = {}   # sku -> (is_default, vendor_id), same rule as planning inputs
     for sku, vendor_id, is_default in models.ItemVendor.objects.order_by('id').values_list('sku', 'vendor_id', 'is_default'):
         if sku in component_skus and (sku not in chosen or (is_default and not chosen[sku][0])):
@@ -127,3 +138,59 @@ def purchasing_vendors() -> list[tuple[str, str]]:
     names = dict(models.Vendor.objects.filter(vendor_id__in=component_counts).values_list('vendor_id', 'name'))
     ranked = sorted(component_counts, key=lambda v: (-po_counts[v], -component_counts[v], names.get(v, v)))
     return [(v, names.get(v, v)) for v in ranked]
+
+
+@dataclass
+class FgComponent:
+    plan: ComponentPlan
+    qty_per: Decimal
+
+
+@dataclass
+class FgRow:
+    sku: str
+    description: str
+    demand_per_month: Decimal
+    available: Decimal
+    components: list[FgComponent]
+
+    @property
+    def months_of_stock(self) -> Optional[Decimal]:
+        return None if self.demand_per_month <= 0 else self.available / self.demand_per_month
+
+    @property
+    def to_order(self) -> list[FgComponent]:
+        return [c for c in self.components if c.plan.needs_order]
+
+    @property
+    def status(self) -> Status:
+        return min((c.plan.status for c in self.components), key=STATUS_RANK.get, default=Status.COVERED)
+
+    @property
+    def next_order_by(self) -> Optional[dt.date]:
+        dates = [c.plan.order_by_date for c in self.to_order if c.plan.order_by_date]
+        return min(dates) if dates else None
+
+    @property
+    def order_now(self) -> bool:
+        return any(c.plan.order_now for c in self.to_order)
+
+
+def finished_goods_view(result: PlanResult) -> list[FgRow]:
+    """Finished goods with the purchased components they use (vendor filter applied to the
+    components), most urgent first. Subassemblies are left out: their components already
+    appear under the finished goods that use them."""
+    item_types = dict(models.StockItem.objects.filter(kind=models.StockItem.FINISHED_GOOD)
+                      .values_list('sku', 'item_type'))
+    by_fg: dict[str, list[FgComponent]] = {}
+    for plan in result.plans:
+        for usage in plan.breakdown:
+            by_fg.setdefault(usage.fg_sku, []).append(FgComponent(plan, usage.qty_per))
+    rows = []
+    for fg in result.inputs.finished_goods:
+        if fg.sku not in by_fg or item_types.get(fg.sku) == 'Subassembly':
+            continue
+        components = sorted(by_fg[fg.sku], key=lambda c: mrp.urgency_key(c.plan))
+        rows.append(FgRow(fg.sku, fg.description, fg.demand_per_month or Decimal(0), fg.on_hand, components))
+    rows.sort(key=lambda r: (STATUS_RANK[r.status], r.next_order_by or dt.date.max, -r.demand_per_month, r.sku))
+    return rows

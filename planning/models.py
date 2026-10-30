@@ -31,6 +31,7 @@ class Flag(str, Enum):
     NO_VENDOR = 'no_vendor'
     MISSING_COST = 'missing_cost'
     NO_PO_HISTORY = 'no_po_history'          # "Match last PO" requested but no previous PO
+    MIXED_SOURCE = 'mixed_source'            # item is set to both purchase and manufacture
 
 
 FLAG_LABELS = {
@@ -41,6 +42,7 @@ FLAG_LABELS = {
     Flag.NO_VENDOR: 'No vendor',
     Flag.MISSING_COST: 'Cost missing',
     Flag.NO_PO_HISTORY: 'No PO history',
+    Flag.MIXED_SOURCE: 'Purchase or manufacture',
 }
 
 

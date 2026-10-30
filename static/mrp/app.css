@@ -70,6 +70,7 @@ h1 { font-size: 1.85rem; font-weight: 700; letter-spacing: -.01em; }
 .filters { display: grid; gap: 18px; }
 .filter-row { display: flex; flex-wrap: wrap; gap: 18px 48px; }
 .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.view-chips { margin-bottom: 18px; }
 .vendor-search { min-height: 44px; width: 220px; max-width: 100%; padding: 8px 18px; border: 1px solid #b9c0cc; border-radius: 999px; font: inherit; background: #fff; color: var(--text); }
 .vendor-results:empty { display: none; }
 .vendor-results { margin-top: 12px; }

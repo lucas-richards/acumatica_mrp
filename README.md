@@ -140,6 +140,8 @@ The logic lives in `planning/mrp.py`. A month is 30 days.
   - otherwise **Covered**
 - months left when an order arrives = months of supply − lead time months, from current supply only (not counting the suggested order), for an order placed today. Negative means stock runs out that many months before an order could arrive.
 - on hand = Acumatica's available quantity when accessible, otherwise quantity on hand
+- components whose Inventory Planning Source is Manufacturing are not on the purchasing plan
+- the page can show **Components** (one row per purchased component) or **Finished goods** (one row per finished good; expand it to see its purchased components)
 
 Edge cases:
 - No usage means infinite cover and no order-by date. It is flagged.

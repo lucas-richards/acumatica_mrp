@@ -1,5 +1,13 @@
 {% load mrp_format %}{% url 'mrp:plan' as plan_url %}
 <section class="card filters" aria-label="Filters">
+  <h2 class="label" id="view-label">Show</h2>
+  <div class="chips view-chips" role="group" aria-labelledby="view-label">
+    {% for value, label, q in view_chips %}
+    <a class="chip{% if value == view %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
+       hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true" hx-indicator="#plan-loading, #plan-content"
+       {% if value == view %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
   <h2 class="label" id="vendor-label">Vendor</h2>
   <div class="chips" role="group" aria-labelledby="vendor-label">
     {% for vid, name, q in vendor_chips %}
@@ -11,12 +19,13 @@
     <input type="search" id="vendor-q" class="vendor-search" name="q" placeholder="Vendor name or ID" autocomplete="off"
            aria-label="Search {{ more_vendors }} more vendors by name or ID"
            hx-get="{% url 'mrp:vendor_search' %}" hx-trigger="input changed delay:250ms, search"
-           hx-target="#vendor-results" aria-controls="vendor-results">
+           hx-target="#vendor-results" aria-controls="vendor-results" hx-vals='{"view": "{{ view }}"}'>
     {% endif %}
   </div>
   {% if more_vendors %}<div id="vendor-results" class="chips vendor-results" aria-live="polite"></div>{% endif %}
 </section>
 
+{% if view == 'fg' %}{% include "mrp/_fg_table.html" %}{% else %}
 {% with stock_label=result.inputs.uses_available|yesno:"Available,On hand" %}
 <section class="card table-card" aria-labelledby="components-title">
   <div class="table-head">
@@ -109,3 +118,4 @@
   </div>
 </section>
 {% endwith %}
+{% endif %}

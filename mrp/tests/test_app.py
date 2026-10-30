@@ -104,6 +104,52 @@ class PlanPageTests(TestCase):
         response = self.client.get(reverse('mrp:plan'), {'vendor': 'TINY'})
         self.assertIn('Tiny Springs', [name for _, name, _ in response.context['vendor_chips']])
 
+    def test_manufactured_components_not_on_purchasing(self, _today):
+        models.StockItem.objects.filter(sku='COMP-2250').update(replenishment_source='Manufacturing')
+        models.StockItem.objects.filter(sku='COMP-2310').update(replenishment_source='Mixed')
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('mrp:plan'))
+        skus = {p.sku for p in response.context['result'].plans}
+        self.assertNotIn('COMP-2250', skus)
+        self.assertEqual(len(skus), 10)
+        self.assertContains(response, 'Purchase or manufacture')
+        fg = self.client.get(reverse('mrp:plan'), {'view': 'fg'})
+        for row in fg.context['fg_rows']:
+            self.assertNotIn('COMP-2250', [c.plan.sku for c in row.components])
+
+    def test_finished_goods_view(self, _today):
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('mrp:plan'), {'view': 'fg'})
+        self.assertContains(response, 'Finished goods')
+        rows = {r.sku: r for r in response.context['fg_rows']}
+        self.assertEqual(set(rows), {'FG-100', 'FG-200', 'FG-300', 'FG-400', 'FG-500'})
+        fg100 = rows['FG-100']
+        self.assertEqual({c.plan.sku for c in fg100.components}, {'COMP-2250', 'COMP-2310', 'COMP-3105', 'COMP-5020'})
+        self.assertEqual(fg100.status.value, 'Stockout risk')
+        self.assertTrue(fg100.order_now)
+        self.assertEqual(fg100.demand_per_month, 40)
+        # Vendor chips keep the finished-goods view
+        self.assertContains(response, '?view=fg&amp;vendor=PACDRV')
+        # Expanded row lists the components
+        detail = self.client.get(reverse('mrp:fg_breakdown', args=['FG-100']))
+        self.assertContains(detail, 'COMP-2250')
+        self.assertContains(detail, 'Qty per unit')
+        self.assertEqual(self.client.get(reverse('mrp:fg_breakdown', args=['NOPE'])).status_code, 404)
+
+    def test_finished_goods_view_vendor_filter(self, _today):
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('mrp:plan'), {'view': 'fg', 'vendor': 'SUMSEA'})
+        rows = response.context['fg_rows']
+        self.assertEqual({r.sku for r in rows}, {'FG-200', 'FG-400'})
+        for r in rows:
+            self.assertEqual({c.plan.component.vendor_id for c in r.components}, {'SUMSEA'})
+
+    def test_subassemblies_not_listed_as_finished_goods(self, _today):
+        models.StockItem.objects.filter(sku='FG-500').update(item_type='Subassembly')
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('mrp:plan'), {'view': 'fg'})
+        self.assertNotIn('FG-500', {r.sku for r in response.context['fg_rows']})
+
     def test_vendor_ranking_by_po_history(self, _today):
         for n in range(5):
             models.PoHistory.objects.create(sku='COMP-6001', vendor_id='SUMSEA', order_nbr=f'X{n}',
