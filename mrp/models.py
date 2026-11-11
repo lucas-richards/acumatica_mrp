@@ -2,13 +2,12 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from planning.demand import DEMAND_SOURCES
+from planning.demand import DEMAND_SOURCES, INTERNAL_SOURCES
 from planning.mrp import MAX_COVER_MONTHS
-from planning.models import QtyMode
+from planning.models import BASIS_CUSTOM, BASIS_SIX, BASIS_TWO_YEAR, QtyMode
 from planning.reminders import REMINDER_DAY_CHOICES
 
 QTY = dict(max_digits=14, decimal_places=4)
-MONEY = dict(max_digits=14, decimal_places=4)
 
 
 # ---------------------------------------------------------------------------
@@ -42,9 +41,11 @@ class StockItem(models.Model):
     lot_size = models.DecimalField(**QTY, null=True, blank=True)
     # Available quantity across warehouses (Acumatica's "Available"); null when not synced
     qty_available = models.DecimalField(**QTY, null=True, blank=True)
+    qty_receiving = models.DecimalField(**QTY, null=True, blank=True)   # in the receiving location, not in available
     item_type = models.CharField(max_length=30, blank=True)            # Finished Good, Subassembly, Component Part
     # Inventory Planning tab "Source": Manufacturing, Purchase, Mixed (classes disagree) or blank
     replenishment_source = models.CharField(max_length=20, blank=True)
+    planning_method = models.CharField(max_length=60, blank=True)
 
     class Meta:
         ordering = ['sku']
@@ -89,7 +90,6 @@ class ItemVendor(models.Model):
     vendor_id = models.CharField(max_length=30)
     is_default = models.BooleanField(default=False)
     lead_time_days = models.PositiveIntegerField(null=True, blank=True)
-    last_cost = models.DecimalField(**MONEY, null=True, blank=True)
     lot_size = models.DecimalField(**QTY, null=True, blank=True)
 
 
@@ -99,15 +99,22 @@ class PoHistory(models.Model):
     order_nbr = models.CharField(max_length=30)
     order_date = models.DateField()
     qty = models.DecimalField(**QTY)
-    unit_cost = models.DecimalField(**MONEY, null=True, blank=True)
 
     class Meta:
         verbose_name_plural = 'PO history'
 
 
+class LastProduction(models.Model):
+    """The most recent completed production run of a finished good."""
+    sku = models.CharField(max_length=60, db_index=True)
+    qty = models.DecimalField(**QTY)
+    run_date = models.DateField()
+
+
 class DemandBucket(models.Model):
-    """Finished-good quantity per month for one demand source."""
-    SOURCE_CHOICES = [(name, name.replace('_', ' ').capitalize()) for name in DEMAND_SOURCES]
+    """Quantity per month for one demand source: finished-good demand, or an internal source (issues, assembly, open orders)."""
+    FG_SOURCE_CHOICES = [(name, name.replace('_', ' ').capitalize()) for name in DEMAND_SOURCES]
+    SOURCE_CHOICES = FG_SOURCE_CHOICES + [(name, name.replace('_', ' ').capitalize()) for name in INTERNAL_SOURCES]
 
     sku = models.CharField(max_length=60, db_index=True)
     source = models.CharField(max_length=30, choices=SOURCE_CHOICES)
@@ -142,19 +149,19 @@ class SyncRun(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Planner settings (changes are logged in SettingsChangeLog)
+# Planner settings
 # ---------------------------------------------------------------------------
 
 class PlanSettings(models.Model):
     QTY_MODE_CHOICES = [(QtyMode.COVER_TARGET.value, 'To reach cover target'),
                         (QtyMode.MATCH_LAST_PO.value, 'Match last PO')]
-    DEMAND_CHOICES = DemandBucket.SOURCE_CHOICES
+    DEMAND_CHOICES = DemandBucket.FG_SOURCE_CHOICES
 
     cover_months = models.PositiveSmallIntegerField(
         default=2, validators=[MinValueValidator(0), MaxValueValidator(MAX_COVER_MONTHS)])
     qty_mode = models.CharField(max_length=10, choices=QTY_MODE_CHOICES, default=QtyMode.COVER_TARGET.value)
     reminder_days = models.PositiveSmallIntegerField(default=30, choices=[(d, f'{d} days') for d in REMINDER_DAY_CHOICES])
-    demand_source = models.CharField(max_length=30, choices=DEMAND_CHOICES, default='trailing_shipments')
+    demand_source = models.CharField(max_length=30, choices=DEMAND_CHOICES, default='trailing_invoices')
     demand_window_months = models.PositiveSmallIntegerField(
         default=6, validators=[MinValueValidator(1), MaxValueValidator(24)])
     updated_at = models.DateTimeField(auto_now=True)
@@ -168,32 +175,29 @@ class PlanSettings(models.Model):
         return obj
 
 
-class LeadTimeOverride(models.Model):
+class UsageChoice(models.Model):
+    """Which monthly usage drives one item's plan, and the custom usage typed in for it. Items without a
+    row use the recent (6 month) usage."""
+    BASIS_CHOICES = [(BASIS_SIX, 'Recent months'), (BASIS_TWO_YEAR, 'Two year average'), (BASIS_CUSTOM, 'Custom')]
+
     sku = models.CharField(max_length=60, unique=True)
-    lead_time_days = models.PositiveIntegerField(validators=[MaxValueValidator(730)])
-    note = models.CharField(max_length=255, blank=True)
+    basis = models.CharField(max_length=10, choices=BASIS_CHOICES, default=BASIS_SIX)
+    custom_usage = models.DecimalField(**QTY, null=True, blank=True)
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     updated_at = models.DateTimeField(auto_now=True)
 
+
+class WarningAck(models.Model):
+    """Someone marked a vendor warning on an item as done. It stays hidden for a week and comes back if the
+    problem is still there."""
+    sku = models.CharField(max_length=60)
+    flag = models.CharField(max_length=30)
+    acked_on = models.DateField()
+    acked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
-        ordering = ['sku']
-
-
-class SettingsChangeLog(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
-    changed_at = models.DateTimeField(auto_now_add=True)
-    setting = models.CharField(max_length=100)
-    old_value = models.CharField(max_length=255, blank=True)
-    new_value = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        ordering = ['-changed_at']
-
-    @classmethod
-    def record(cls, user, setting, old, new):
-        if str(old) != str(new):
-            cls.objects.create(user=user, setting=setting,
-                               old_value='' if old is None else str(old), new_value='' if new is None else str(new))
+        constraints = [models.UniqueConstraint(fields=['sku', 'flag'], name='uniq_warning_ack')]
 
 
 # ---------------------------------------------------------------------------

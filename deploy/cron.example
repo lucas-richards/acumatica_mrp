@@ -2,8 +2,8 @@
 # Logs go to /home/bc/westridgeApp_mrp/logs/ (create it first: mkdir -p /home/bc/westridgeApp_mrp/logs).
 MRP=/home/bc/westridgeApp_mrp
 
-# Refresh data from Acumatica every weekday at 05:30 (once Acumatica access is configured)
-30 5 * * 1-5 cd $MRP && .venv/bin/python manage.py sync_acumatica >> $MRP/logs/sync.log 2>&1
+# Refresh data from Acumatica every day at 06:00 (once Acumatica access is configured)
+0 6 * * * cd $MRP && .venv/bin/python manage.py sync_acumatica >> $MRP/logs/sync.log 2>&1
 
 # Daily vendor order reminders at 06:45 (a vendor is not re-sent within 7 days unless it becomes more urgent)
 45 6 * * * cd $MRP && .venv/bin/python manage.py send_order_reminders >> $MRP/logs/reminders.log 2>&1

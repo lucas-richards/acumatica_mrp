@@ -1,13 +1,13 @@
 {% load mrp_format %}{% autoescape off %}Purchasing plan, {{ result.today|date:"D, M j, Y" }}
 
-{{ result.summary.components_to_order }} of {{ result.summary.shown }} components to order · estimated value {{ result.summary.estimated_value|money }}
+{{ result.summary.components_to_order }} of {{ result.summary.shown }} components to order
 {% if result.summary.out_before_arrival %}Out before an order would arrive: {{ result.summary.out_before_arrival|join:", " }}
 {% endif %}
 Order reminders by vendor (remind {{ result.reminder_days }} days before):
 {% for r in result.reminders %}{% if r.components_due %}- {{ r.vendor.name }}: {{ r.status.value }} · {% if r.order_now %}order now{% else %}order by {{ r.next_order_by|date:"M j" }}{% endif %} · lead time {{ r.vendor.lead_time_days|lead_time }} · {{ r.components_due }} due
 {% endif %}{% endfor %}
 {% if to_order %}Components to order (most urgent first):
-{% for p in to_order %}- {{ p.sku }} {{ p.component.description }} ({{ p.component.vendor_name|default:"no vendor" }}): {{ p.suggested_qty|qty }} · order by {% if p.order_now %}now{% else %}{{ p.order_by_date|date:"M j" }}{% endif %} · {{ p.estimated_cost|money }}
+{% for p in to_order %}- {{ p.sku }} {{ p.component.description }} ({{ p.component.vendor_name|default:"no vendor" }}): {{ p.suggested_qty|qty }} · order by {% if p.order_now %}now{% else %}{{ p.order_by_date|date:"M j" }}{% endif %}
 {% endfor %}{% endif %}
 Open the planner: {{ site_url }}
 To stop this email, use "Stop the Monday email" in the planner.

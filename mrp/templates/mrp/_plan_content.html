@@ -1,121 +1,70 @@
 {% load mrp_format %}{% url 'mrp:plan' as plan_url %}
-<section class="card filters" aria-label="Filters">
-  <h2 class="label" id="view-label">Show</h2>
-  <div class="chips view-chips" role="group" aria-labelledby="view-label">
-    {% for value, label, q in view_chips %}
-    <a class="chip{% if value == view %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
-       hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true" hx-indicator="#plan-loading, #plan-content"
-       {% if value == view %}aria-current="true"{% endif %}>{{ label }}</a>
-    {% endfor %}
-  </div>
-  <h2 class="label" id="vendor-label">Vendor</h2>
-  <div class="chips" role="group" aria-labelledby="vendor-label">
-    {% for vid, name, q in vendor_chips %}
+<section class="card filters" aria-label="Vendors">
+  <div class="chips" role="group" aria-label="Vendors with something to order">
+    {% for vid, name, count, q in vendor_chips %}
     <a class="chip{% if vid == options.vendor_id|default_if_none:'' %} is-active{% endif %}" href="{{ plan_url }}{{ q }}"
        hx-get="{{ plan_url }}{{ q }}" hx-target="#plan-content" hx-push-url="true" hx-indicator="#plan-loading, #plan-content"
-       {% if vid == options.vendor_id|default_if_none:'' %}aria-current="true"{% endif %}>{{ name }}</a>
+       {% if vid == options.vendor_id|default_if_none:'' %}aria-current="true"{% endif %}>{{ name }}{% if count is not None %}<span class="chip-count" title="{{ count }} item{{ count|pluralize }} to order"><span class="visually-hidden">{{ count }} item{{ count|pluralize }} to order</span><span aria-hidden="true">{{ count }}</span></span>{% endif %}</a>
     {% endfor %}
-    {% if more_vendors %}
-    <input type="search" id="vendor-q" class="vendor-search" name="q" placeholder="Vendor name or ID" autocomplete="off"
-           aria-label="Search {{ more_vendors }} more vendors by name or ID"
-           hx-get="{% url 'mrp:vendor_search' %}" hx-trigger="input changed delay:250ms, search"
-           hx-target="#vendor-results" aria-controls="vendor-results" hx-vals='{"view": "{{ view }}"}'>
-    {% endif %}
   </div>
-  {% if more_vendors %}<div id="vendor-results" class="chips vendor-results" aria-live="polite"></div>{% endif %}
 </section>
 
-{% if view == 'fg' %}{% include "mrp/_fg_table.html" %}{% else %}
 {% with stock_label=result.inputs.uses_available|yesno:"Available,On hand" %}
-<section class="card table-card" aria-labelledby="components-title">
-  <div class="table-head">
-    <div>
-      <h2 class="section-title" id="components-title">Components</h2>
-      <p class="section-intro">Order qty covers the lead time plus at least {{ options.cover_months }} months: usage × (lead time + {{ options.cover_months }} months) − supply, rounded up to the lot size. Supply = {{ stock_label|lower }} + on order + stock already built into finished goods. Select the finished goods count to see what drives each component. Most urgent first.</p>
-    </div>
-    <div class="legend">
-      <span><span class="legend-line line-lead" aria-hidden="true"></span> Lead time</span>
-      <span><span class="legend-line line-reorder" aria-hidden="true"></span> Reorder point (lead time + {{ options.cover_months }} months)</span>
-    </div>
-  </div>
+<section class="card table-card" aria-label="Items to purchase" data-history-url="{{ history_url }}" data-chart-js="{% static_v 'mrp/chart.umd.min.js' %}">
   {% if not result.inputs.uses_available %}<p class="notice">Showing quantity <strong>on hand</strong>: the available quantity isn't accessible in Acumatica yet.</p>{% endif %}
-  <div class="table-scroll" tabindex="0" role="region" aria-labelledby="components-title">
+  <div class="table-scroll plan-scroll" tabindex="0" role="region" aria-label="Items to purchase">
     <table class="plan-table">
       <thead>
         <tr>
-          <th scope="col">Component</th>
-          <th scope="col">FGs affected</th>
-          <th scope="col" class="num">Usage / mo</th>
+          <th scope="col">Item
+            <input type="search" class="col-filter" data-filter="item" placeholder="SKU or description" autocomplete="off" aria-label="Filter by SKU or description">
+          </th>
+          <th scope="col">Impact</th>
+          <th scope="col" class="num has-tip" tabindex="0" data-tip="Monthly usage, 2 years&#10;Click a usage value to plan this item with it.&#10;The same measure as the usage over {{ settings.demand_window_months }} months, averaged over the last 24 full months, with how many of those months had any use. Close to usage per month means steady use; far apart means it comes in bursts.">Mo usage (2 year)</th>
+          <th scope="col" class="num has-tip" tabindex="0" data-tip="Usage per month&#10;The average of the last {{ settings.demand_window_months }} months of inventory issues (lines of type Issue, not direct sales). For a bought finished good: invoices + kit breakdowns.">Mo usage ({{ settings.demand_window_months }} months)</th>
+          <th scope="col" class="num has-tip" tabindex="0" data-tip="Custom monthly usage&#10;Type any monthly usage you want. Typing one makes it the usage in use; click another usage to switch back. The usage in use (highlighted) drives months of supply, status, the suggested quantity and the months left.">Mo usage (custom)</th>
           <th scope="col">Lead time</th>
-          <th scope="col" class="num">Demand in lead time</th>
           <th scope="col" class="num">{{ stock_label }}</th>
           <th scope="col" class="num">On order</th>
-          <th scope="col">Months of supply</th>
-          <th scope="col">Order by</th>
-          <th scope="col" class="num">Order qty</th>
+          <th scope="col" class="num has-tip" tabindex="0" data-tip="In Receiving&#10;Received but still in the receiving location, so not in the {{ stock_label|lower }} quantity. It counts as supply.">In Receiving</th>
+          <th scope="col"><span class="has-tip" tabindex="0" data-tip="Months of supply&#10;Supply ÷ usage per month. Shows Back ordered when the {{ stock_label|lower }} quantity is negative.&#10;Supply = {{ stock_label|lower }} + on order + in Receiving − quantity on open orders that have no production order.">Months of supply</span>
+            <select class="col-filter" data-filter="status" aria-label="Filter by status">
+              <option value="">All</option>
+              <option value="Stockout risk">Stockout risk</option>
+              <option value="Order soon">Order soon</option>
+              <option value="Covered">Covered</option>
+              <option value="back ordered">Back ordered</option>
+            </select>
+          </th>
+          <th scope="col" class="num has-tip" tabindex="0" data-tip="Order qty and suggested&#10;The box starts at the last order quantity once the item is ready to order, otherwise 0.&#10;Suggested = usage × reorder point − supply, rounded up to the lot size, and never less than 1.2 × usage × lead time (the lead time's demand plus 20%).&#10;Reorder point = lead time (at least 7 days) + time to prepare the order, a third of the lead time and at least 7 days.">Order qty</th>
           <th scope="col" class="num">Last order</th>
-          <th scope="col" class="num">Months left when an order arrives</th>
-          <th scope="col" class="num">Est. cost</th>
+          <th scope="col" class="num has-tip" tabindex="0" data-tip="Months left when an order arrives&#10;(Available + on order + in Receiving − lead time × monthly usage) ÷ monthly usage. Negative means it runs out before the order could arrive.">Months left when an order arrives</th>
+          <th scope="col" class="num has-tip" tabindex="0" data-tip="Months left with this order&#10;(Available + on order + in Receiving + the order quantity in the box − lead time × monthly usage) ÷ monthly usage. Changes as you type.">Months left with this order</th>
         </tr>
       </thead>
       <tbody>
         {% for p in result.plans %}
-        <tr class="row-{{ p.status|status_class }}">
-          <th scope="row" class="component-cell">
-            <span class="sku">{{ p.sku }}</span> · {{ p.component.description }}
-            <span class="vendor-name">{{ p.component.vendor_name|default:"No vendor" }}</span>
-            {% if p.flags %}<span class="flags">{% for f in p.flags %}<span class="flag">{{ f|flag_label }}</span>{% endfor %}</span>{% endif %}
-          </th>
-          <td>
-            {% if p.breakdown %}
-            <button type="button" class="expand-btn" data-toggle-row aria-expanded="false" aria-controls="bd-{{ forloop.counter }}"
-                    hx-get="{% url 'mrp:breakdown' p.sku %}{{ query }}" hx-target="#bd-{{ forloop.counter }}-cell" hx-trigger="click once">
-              {{ p.breakdown|length }} FG{{ p.breakdown|length|pluralize }} <span aria-hidden="true" class="chev">⌄</span>
-              <span class="visually-hidden">for {{ p.sku }}</span>
-            </button>
-            {% else %}<span class="muted">None</span>{% endif %}
-          </td>
-          <td class="num">{{ p.usage_per_month|qty }}</td>
-          <td>{{ p.component.lead_time_days|lead_time }}</td>
-          <td class="num strong">{{ p.demand_in_lead_time|qty }}</td>
-          <td class="num">
-            {{ p.component.on_hand|qty }}
-            {% if p.embedded_stock %}<span class="sub">+{{ p.embedded_stock|qty }} in FG stock</span>{% endif %}
-          </td>
-          <td class="num">
-            {% if p.component.on_order %}{{ p.component.on_order|qty }}{% if p.component.on_order_since %}<span class="sub">since {{ p.component.on_order_since|date:"M j, Y" }}</span>{% endif %}{% else %}<span class="muted">0</span>{% endif %}
-          </td>
-          <td class="mos-cell">
-            {% supply_bar p as bar %}
-            <div class="mos">
-              <div class="bar" role="img" aria-label="{{ p.months_of_supply|months }} months of supply; lead time {{ p.lead_time_months|months }} months; reorder point {{ p.target_months|months }} months">
-                <span class="bar-fill fill-{{ p.status|status_class }}" style="width: {{ bar.fill }}%"></span>
-                <span class="bar-line line-lead" style="left: {{ bar.lead }}%"></span>
-                <span class="bar-line line-reorder" style="left: {{ bar.reorder }}%"></span>
+        {% include "mrp/_plan_row.html" %}
+        <tr id="bd-{{ p.sku|dom_id }}" class="breakdown-row" hidden>
+          <td colspan="14">
+            <div class="detail">
+              {% if p.breakdown %}
+              <div class="detail-fg" hx-get="{% url 'mrp:breakdown' p.sku %}{{ query }}" hx-trigger="load-detail once" hx-swap="innerHTML"><p class="muted">Loading…</p></div>
+              {% endif %}
+              <div class="detail-chart" data-history-pane data-sku="{{ p.sku }}">
+                <h3 class="detail-title">2 year graph inventory levels</h3>
+                <p class="history-note" role="status" aria-live="polite"></p>
+                <div class="history-tools"><button type="button" class="btn btn-outline btn-small" data-history-raw hidden></button></div>
+                <div class="history-chart"><canvas role="img" aria-label="2 year graph of inventory levels for {{ p.sku }}"></canvas></div>
               </div>
-              <span class="mos-value">{{ p.months_of_supply|months }}</span>
             </div>
-            <span class="pill pill-{{ p.status|status_class }}">{{ p.status.value }}</span>
           </td>
-          <td class="order-by">{% if p.order_by_date is None %}<span class="muted">—</span>{% elif p.order_now %}<span class="text-danger strong">Now</span>{% else %}{{ p.order_by_date|date:"M j" }}{% endif %}</td>
-          <td class="num strong">{% if p.suggested_qty %}{{ p.suggested_qty|qty }}{% else %}<span class="muted">0</span>{% endif %}</td>
-          <td class="num">{% if p.component.last_po_qty is not None %}{{ p.component.last_po_qty|qty }}<span class="sub">{{ p.component.last_po_date|date:"M j, Y" }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-          <td class="num">{% if p.months_at_arrival is None %}<span class="muted">—</span>{% elif p.months_at_arrival < 0 %}<span class="text-danger strong">{{ p.months_at_arrival|months }} mo</span><span class="sub">runs out before it arrives</span>{% else %}{{ p.months_at_arrival|months }} mo{% endif %}</td>
-          <td class="num">{% if p.suggested_qty %}{{ p.estimated_cost|money }}{% else %}<span class="muted">—</span>{% endif %}</td>
-        </tr>
-        <tr id="bd-{{ forloop.counter }}" class="breakdown-row" hidden>
-          <td colspan="13" id="bd-{{ forloop.counter }}-cell"><p class="muted">Loading…</p></td>
         </tr>
         {% empty %}
-        <tr><td colspan="13" class="empty">No components to show. Load data with <code>manage.py seed_demo</code>, <code>import_data</code> or <code>sync_acumatica</code>.</td></tr>
+        <tr><td colspan="14" class="empty">Nothing to purchase. Load data with <code>manage.py seed_demo</code>, <code>import_data</code> or <code>sync_acumatica</code>.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <div class="table-foot">
-    <a class="btn" href="{% url 'mrp:export_csv' %}{{ query }}">Export CSV (grouped by vendor)</a>
-    <span class="hint">"Months left when an order arrives" uses current supply only (without the suggested order), for an order placed today. Negative means stock runs out that many months before it could arrive. Demand source: {{ result.demand_source|words|capfirst }}{% if result.demand_source == 'trailing_shipments' %} (average of the last {{ settings.demand_window_months }} full months){% endif %}.</span>
-  </div>
 </section>
 {% endwith %}
-{% endif %}

@@ -5,7 +5,7 @@ An internal, read-only purchasing planner. For each purchased component it works
 - whether current supply lasts through the vendor's lead time
 - when to order and how much
 
-Data comes from Acumatica's own records (BOMs, stock items, vendors, purchase orders, shipments, sales orders) through the REST API. The app never writes to Acumatica in phase 1.
+Data comes from Acumatica's own records (BOMs, stock items, vendors, purchase orders, invoices, inventory issues, sales orders) through the REST API. The app never writes to Acumatica in phase 1.
 
 This is a separate Django project from westridgeApp. It has its own venv, its own PostgreSQL database, its own mod_wsgi daemon process, and its own users and cookies. It is served at `/mrp` on the same Apache.
 
@@ -45,12 +45,14 @@ Open http://localhost:8001/ (westridgeApp's dev server uses 8000).
 ### Users and roles
 
 Everything requires a login. Each user needs one of two groups (they are created by the migrations):
-- **viewer**: can see the plan, filter by vendor, expand rows and export CSV.
-- **planner**: everything a viewer can do, plus set lead-time overrides and press "Refresh from Acumatica".
+- **viewer**: can see the plan, pick a vendor, filter the table by item or status, expand rows and export CSV.
+- **planner**: everything a viewer can do, plus choose which monthly usage drives an item, type a custom usage, and press "Refresh from Acumatica".
 
 Superusers count as planners. Add users and groups in `/admin/`. Users here are separate from westridgeApp users.
 
-Every settings change is recorded with the user and the old and new values. You can see them on **Lead times & change log**, and in the admin.
+### Inventory level chart
+
+The small graph icon next to each SKU opens a panel under the item, titled "2 year graph inventory levels", with the item's inventory level for the last two years as a line chart. For an item that affects finished goods, the panel shows them on the left (the same table as the finished-goods button) and the chart on the right; the icon and the finished-goods button open and close the same panel. The data comes from westridgeApp's planner endpoint (`/planner/json/`, the one the Planner > Inventory Level tab uses), which is served by the same Apache host, so the numbers match that tab. westridgeApp has to be running. Set `MRP_INVENTORY_HISTORY_URL` to a full URL if the endpoint lives elsewhere. Chart.js 4.4.1 is bundled in `static/mrp/` and is only loaded the first time a chart is opened.
 
 ## Environment variables
 
@@ -70,6 +72,8 @@ All configuration comes from the environment or from `.env` in the project root.
 | `ACUMATICA_ENDPOINT`, `ACUMATICA_MANUFACTURING_ENDPOINT` | REST endpoints (default `Default/24.200.001`, `MANUFACTURING/24.200.001`) |
 | `ACUMATICA_SALES_ORDER_TYPES` | Sales order types counted as demand (default `SO`) |
 | `ACUMATICA_AVAILABLE_GI` | Generic Inquiry with the available quantity (default `LR-Available Qty`) |
+| `ACUMATICA_ITEM_PLANNING_GI` | Generic Inquiry with each item's planning method and source (default `IN-StockItem`) |
+| `ACUMATICA_RECEIVING_GI` / `ACUMATICA_RECEIVING_LOCATION` | Generic Inquiry with the quantity per location (default `DB-StorageDetailsByItemWarehouseLocation`) and the receiving location (default `REC-INS`) |
 | `EMAIL_HOST` (`smtp.fastmail.com`), `EMAIL_PORT` (465), `EMAIL_USE_SSL`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Fastmail SMTP with an app-specific password |
 | `DEFAULT_FROM_EMAIL` | Sender address |
 | `MRP_REMINDER_TO` | Comma-separated recipients of vendor reminders |
@@ -79,7 +83,7 @@ All configuration comes from the environment or from `.env` in the project root.
 
 ### Sample data
 
-`manage.py seed_demo` loads 5 vendors, 11 components and 5 finished goods. Their dates are shifted so they are relative to today. The page then shows the numbers from the agreed mockup: 6 of 11 to order, COMP-2250 at 1.8 months, $10,195 estimated. Add `--as-of 2026-10-29` to reproduce the mockup's dates exactly.
+`manage.py seed_demo` loads 5 vendors, 11 components and 5 finished goods. Their dates are shifted so they are relative to today. The page lists everything to purchase in one table. Add `--as-of 2026-10-29` to reproduce the sample dates exactly.
 
 ### Import from files
 
@@ -96,7 +100,7 @@ The JSON shape is the same as `sample_data/sample_data.json`. For CSV, use one f
 - `bom.csv`
 - `item_vendors.csv`
 - `po_history.csv`
-- `demand.csv`, with columns `sku,source,month,qty`. `source` is one of `trailing_shipments`, `open_sales_orders` or `forecast`.
+- `demand.csv`, with columns `sku,source,month,qty`. `source` is one of `trailing_invoices`, `open_sales_orders` or `forecast`.
 
 Each dataset in the file fully replaces what is stored. If any row is invalid, nothing changes.
 
@@ -113,26 +117,25 @@ The sync reads everything first and then replaces the local tables in one transa
 
 ### Lead times
 
-The lead time for each component is chosen in this order:
-1. the planner's per-item **override** (Lead times page)
-2. the **item-vendor** lead time from Acumatica
-3. the **vendor default** lead time
+The lead time is what Acumatica has: the **item-vendor** lead time, else the **vendor default**. There are no overrides in the planner. An item with neither is flagged "Lead time missing" and planned with the 7-day minimum.
 
-A component with none of these is flagged "Lead time missing" and treated as 0.
+### Which usage drives an item
+
+Each row shows three monthly usages: the 2-year average, the recent (6 month) average, and a custom value a planner can type in. The one in use is highlighted and drives everything for that item: months of supply, status, the suggested quantity and the months left. Planners click another value to switch, and typing a custom value selects it. Items start on the recent usage. Choices are remembered per item.
 
 ## Planning logic
 
 The logic lives in `planning/mrp.py`. A month is 30 days.
 
-- usage/month = Σ over finished goods that use it of (FG monthly demand × qty per unit)
-- lead time months = lead time days ÷ 30
+- usage/month = trailing average of the component's inventory issues (lines of type Issue, plus kit assemblies; components sold straight to a customer on an Invoice line are left out); for a bought finished good, invoices + kit breakdowns (no issues)
+- on open orders = Σ over finished goods that use it of (open sales order qty with no production order × qty per unit)
+- lead time months = lead time days ÷ 30, but never less than 7 days (the red line)
 - demand in lead time = usage × lead time months
-- embedded stock = Σ (FG on hand × qty per unit)
-- supply position = on hand + on order + embedded stock
+- supply position = on hand + on order − on open orders
 - months of supply = supply ÷ usage
-- target = lead time months + 2 months (fixed; every order covers the lead time plus at least 2 months)
+- target (the reorder point) = lead time + time to prepare the order, where preparing takes a third of the lead time and at least 7 days. A lead time of a week or less gives 14 days; 3 months gives 4 months; 6 months gives 8
 - needed = usage × target − supply
-- suggested qty = needed rounded up to the lot size (0 if needed ≤ 0)
+- suggested qty = needed rounded up to the lot size (0 if needed ≤ 0). When an order is needed it is never less than 1.2 × usage × lead time months (the lead time's demand plus 20%), whatever is in stock
 - order-by date = today + (months of supply − lead time months) × 30 days, rounded down to a whole day. "Now" if it is today or earlier.
 - status:
   - **Stockout risk** if months of supply < lead time
@@ -145,10 +148,10 @@ The logic lives in `planning/mrp.py`. A month is 30 days.
 
 Edge cases:
 - No usage means infinite cover and no order-by date. It is flagged.
-- Missing lead time, vendor, cost, BOM or FG demand never crashes the plan. Each is flagged in the table.
+- Missing lead time, vendor, BOM or FG demand never crashes the plan. Each is flagged in the table.
 
 FG demand is a swappable function (`planning/demand.py`):
-- `trailing_shipments` is the default: the average of the last 6 full months.
+- `trailing_invoices` is the default: the average of the last 6 full months.
 - `open_sales_orders`
 - `forecast`
 

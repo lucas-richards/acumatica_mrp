@@ -13,7 +13,7 @@ from typing import Any, Iterable, Mapping
 from django.db import transaction
 from django.utils import timezone
 
-from planning.demand import DEMAND_SOURCES, month_start
+from planning.demand import DEMAND_SOURCES, INTERNAL_SOURCES, month_start
 
 from . import models
 
@@ -72,8 +72,8 @@ def _kind(v):
 
 def _source(v):
     v = _str(v)
-    if v not in DEMAND_SOURCES:
-        raise ValueError(f'source must be one of {", ".join(DEMAND_SOURCES)}')
+    if v not in DEMAND_SOURCES and v not in INTERNAL_SOURCES:
+        raise ValueError(f'source must be one of {", ".join([*DEMAND_SOURCES, *INTERNAL_SOURCES])}')
     return v
 
 
@@ -84,8 +84,8 @@ DATASETS: dict[str, tuple[type, dict[str, tuple[Any, bool]]]] = {
     'stock_items': (models.StockItem, {
         'sku': (_str, True), 'description': (_opt_str, False), 'item_class': (_opt_str, False),
         'kind': (_kind, True), 'uom': (_opt_str, False), 'lot_size': (_decimal, False),
-        'qty_available': (_decimal, False), 'item_type': (_opt_str, False),
-        'replenishment_source': (_opt_str, False)}),
+        'qty_available': (_decimal, False), 'qty_receiving': (_decimal, False), 'item_type': (_opt_str, False),
+        'replenishment_source': (_opt_str, False), 'planning_method': (_opt_str, False)}),
     'on_hand': (models.OnHand, {'sku': (_str, True), 'warehouse': (_str, True), 'qty': (_decimal, True)}),
     'open_po_lines': (models.OpenPOLine, {
         'order_nbr': (_str, True), 'line_nbr': (_int, True), 'sku': (_str, True), 'vendor_id': (_str, True),
@@ -93,10 +93,12 @@ DATASETS: dict[str, tuple[type, dict[str, tuple[Any, bool]]]] = {
     'bom': (models.BomLine, {'fg_sku': (_str, True), 'component_sku': (_str, True), 'qty_per': (_decimal, True)}),
     'item_vendors': (models.ItemVendor, {
         'sku': (_str, True), 'vendor_id': (_str, True), 'is_default': (_bool, False),
-        'lead_time_days': (_int, False), 'last_cost': (_decimal, False), 'lot_size': (_decimal, False)}),
+        'lead_time_days': (_int, False), 'lot_size': (_decimal, False)}),
     'po_history': (models.PoHistory, {
         'sku': (_str, True), 'vendor_id': (_str, True), 'order_nbr': (_str, True), 'order_date': (_date, True),
-        'qty': (_decimal, True), 'unit_cost': (_decimal, False)}),
+        'qty': (_decimal, True)}),
+    'last_production': (models.LastProduction, {
+        'sku': (_str, True), 'qty': (_decimal, True), 'run_date': (_date, True)}),
     'demand': (models.DemandBucket, {
         'sku': (_str, True), 'source': (_source, True), 'month': (_date, True), 'qty': (_decimal, True)}),
 }

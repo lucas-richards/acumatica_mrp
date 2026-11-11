@@ -416,78 +416,67 @@
    "sku": "COMP-2250",
    "vendor_id": "PACDRV",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "4.20"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-2310",
    "vendor_id": "PACDRV",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "38.50"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-4408",
    "vendor_id": "CASCAB",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "12.00"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-4410",
    "vendor_id": "CASCAB",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "6.80"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-3105",
    "vendor_id": "NWMETL",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "3.25"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-3120",
    "vendor_id": "NWMETL",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "9.25"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-3150",
    "vendor_id": "NWMETL",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "14.00"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-5010",
    "vendor_id": "INLFAS",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "1.45"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-5020",
    "vendor_id": "INLFAS",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "0.12"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-6001",
    "vendor_id": "SUMSEA",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "0.85"
+   "lead_time_days": null
   },
   {
    "sku": "COMP-6010",
    "vendor_id": "SUMSEA",
    "is_default": true,
-   "lead_time_days": null,
-   "last_cost": "3.40"
+   "lead_time_days": null
   }
  ],
  "po_history": [
@@ -496,130 +485,119 @@
    "vendor_id": "PACDRV",
    "order_nbr": "PO004000",
    "order_date": "2026-05-12",
-   "qty": 600,
-   "unit_cost": "4.20"
+   "qty": 600
   },
   {
    "sku": "COMP-2310",
    "vendor_id": "PACDRV",
    "order_nbr": "PO004001",
    "order_date": "2026-06-03",
-   "qty": 120,
-   "unit_cost": "38.50"
+   "qty": 120
   },
   {
    "sku": "COMP-4408",
    "vendor_id": "CASCAB",
    "order_nbr": "PO004002",
    "order_date": "2026-04-21",
-   "qty": 150,
-   "unit_cost": "12.00"
+   "qty": 150
   },
   {
    "sku": "COMP-4410",
    "vendor_id": "CASCAB",
    "order_nbr": "PO004003",
    "order_date": "2026-07-08",
-   "qty": 100,
-   "unit_cost": "6.80"
+   "qty": 100
   },
   {
    "sku": "COMP-3105",
    "vendor_id": "NWMETL",
    "order_nbr": "PO004004",
    "order_date": "2026-05-28",
-   "qty": 500,
-   "unit_cost": "3.25"
+   "qty": 500
   },
   {
    "sku": "COMP-3120",
    "vendor_id": "NWMETL",
    "order_nbr": "PO004005",
    "order_date": "2026-06-15",
-   "qty": 50,
-   "unit_cost": "9.25"
+   "qty": 50
   },
   {
    "sku": "COMP-3150",
    "vendor_id": "NWMETL",
    "order_nbr": "PO004006",
    "order_date": "2026-08-04",
-   "qty": 80,
-   "unit_cost": "14.00"
+   "qty": 80
   },
   {
    "sku": "COMP-5010",
    "vendor_id": "INLFAS",
    "order_nbr": "PO004007",
    "order_date": "2026-09-02",
-   "qty": 500,
-   "unit_cost": "1.45"
+   "qty": 500
   },
   {
    "sku": "COMP-5020",
    "vendor_id": "INLFAS",
    "order_nbr": "PO004008",
    "order_date": "2026-09-10",
-   "qty": 1000,
-   "unit_cost": "0.12"
+   "qty": 1000
   },
   {
    "sku": "COMP-6001",
    "vendor_id": "SUMSEA",
    "order_nbr": "PO004009",
    "order_date": "2026-09-18",
-   "qty": 400,
-   "unit_cost": "0.85"
+   "qty": 400
   },
   {
    "sku": "COMP-6010",
    "vendor_id": "SUMSEA",
    "order_nbr": "PO004010",
    "order_date": "2026-09-25",
-   "qty": 60,
-   "unit_cost": "3.40"
+   "qty": 60
   }
  ],
  "demand": [
   {
    "sku": "FG-100",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-04-01",
    "qty": 38
   },
   {
    "sku": "FG-100",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-05-01",
    "qty": 42
   },
   {
    "sku": "FG-100",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-06-01",
    "qty": 40
   },
   {
    "sku": "FG-100",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-07-01",
    "qty": 41
   },
   {
    "sku": "FG-100",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-08-01",
    "qty": 39
   },
   {
    "sku": "FG-100",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-09-01",
    "qty": 40
   },
   {
    "sku": "FG-100",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-10-01",
    "qty": 36
   },
@@ -661,43 +639,43 @@
   },
   {
    "sku": "FG-200",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-04-01",
    "qty": 24
   },
   {
    "sku": "FG-200",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-05-01",
    "qty": 26
   },
   {
    "sku": "FG-200",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-06-01",
    "qty": 25
   },
   {
    "sku": "FG-200",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-07-01",
    "qty": 25
   },
   {
    "sku": "FG-200",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-08-01",
    "qty": 23
   },
   {
    "sku": "FG-200",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-09-01",
    "qty": 27
   },
   {
    "sku": "FG-200",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-10-01",
    "qty": 22
   },
@@ -739,43 +717,43 @@
   },
   {
    "sku": "FG-300",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-04-01",
    "qty": 11
   },
   {
    "sku": "FG-300",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-05-01",
    "qty": 13
   },
   {
    "sku": "FG-300",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-06-01",
    "qty": 12
   },
   {
    "sku": "FG-300",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-07-01",
    "qty": 12
   },
   {
    "sku": "FG-300",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-08-01",
    "qty": 12
   },
   {
    "sku": "FG-300",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-09-01",
    "qty": 12
   },
   {
    "sku": "FG-300",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-10-01",
    "qty": 11
   },
@@ -817,43 +795,43 @@
   },
   {
    "sku": "FG-400",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-04-01",
    "qty": 28
   },
   {
    "sku": "FG-400",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-05-01",
    "qty": 31
   },
   {
    "sku": "FG-400",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-06-01",
    "qty": 30
   },
   {
    "sku": "FG-400",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-07-01",
    "qty": 32
   },
   {
    "sku": "FG-400",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-08-01",
    "qty": 29
   },
   {
    "sku": "FG-400",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-09-01",
    "qty": 30
   },
   {
    "sku": "FG-400",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-10-01",
    "qty": 27
   },
@@ -895,43 +873,43 @@
   },
   {
    "sku": "FG-500",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-04-01",
    "qty": 19
   },
   {
    "sku": "FG-500",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-05-01",
    "qty": 21
   },
   {
    "sku": "FG-500",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-06-01",
    "qty": 20
   },
   {
    "sku": "FG-500",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-07-01",
    "qty": 20
   },
   {
    "sku": "FG-500",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-08-01",
    "qty": 22
   },
   {
    "sku": "FG-500",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-09-01",
    "qty": 18
   },
   {
    "sku": "FG-500",
-   "source": "trailing_shipments",
+   "source": "trailing_invoices",
    "month": "2026-10-01",
    "qty": 18
   },
@@ -970,6 +948,498 @@
    "source": "forecast",
    "month": "2026-12-01",
    "qty": 21
+  },
+  {
+   "sku": "COMP-2250",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 104
+  },
+  {
+   "sku": "COMP-2250",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 115
+  },
+  {
+   "sku": "COMP-2250",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 110
+  },
+  {
+   "sku": "COMP-2250",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 114
+  },
+  {
+   "sku": "COMP-2250",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 107
+  },
+  {
+   "sku": "COMP-2250",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 110
+  },
+  {
+   "sku": "COMP-2250",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 99
+  },
+  {
+   "sku": "COMP-2310",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 66
+  },
+  {
+   "sku": "COMP-2310",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 73
+  },
+  {
+   "sku": "COMP-2310",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 70
+  },
+  {
+   "sku": "COMP-2310",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 73
+  },
+  {
+   "sku": "COMP-2310",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 68
+  },
+  {
+   "sku": "COMP-2310",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 70
+  },
+  {
+   "sku": "COMP-2310",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 63
+  },
+  {
+   "sku": "COMP-3105",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 200
+  },
+  {
+   "sku": "COMP-3105",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 220
+  },
+  {
+   "sku": "COMP-3105",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 210
+  },
+  {
+   "sku": "COMP-3105",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 214
+  },
+  {
+   "sku": "COMP-3105",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 202
+  },
+  {
+   "sku": "COMP-3105",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 214
+  },
+  {
+   "sku": "COMP-3105",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 188
+  },
+  {
+   "sku": "COMP-3120",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 49
+  },
+  {
+   "sku": "COMP-3120",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 55
+  },
+  {
+   "sku": "COMP-3120",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 52
+  },
+  {
+   "sku": "COMP-3120",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 52
+  },
+  {
+   "sku": "COMP-3120",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 56
+  },
+  {
+   "sku": "COMP-3120",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 48
+  },
+  {
+   "sku": "COMP-3120",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 47
+  },
+  {
+   "sku": "COMP-3150",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 28
+  },
+  {
+   "sku": "COMP-3150",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 31
+  },
+  {
+   "sku": "COMP-3150",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 30
+  },
+  {
+   "sku": "COMP-3150",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 32
+  },
+  {
+   "sku": "COMP-3150",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 29
+  },
+  {
+   "sku": "COMP-3150",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 30
+  },
+  {
+   "sku": "COMP-3150",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 27
+  },
+  {
+   "sku": "COMP-4408",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 41
+  },
+  {
+   "sku": "COMP-4408",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 47
+  },
+  {
+   "sku": "COMP-4408",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 44
+  },
+  {
+   "sku": "COMP-4408",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 44
+  },
+  {
+   "sku": "COMP-4408",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 46
+  },
+  {
+   "sku": "COMP-4408",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 42
+  },
+  {
+   "sku": "COMP-4408",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 40
+  },
+  {
+   "sku": "COMP-4410",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 24
+  },
+  {
+   "sku": "COMP-4410",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 26
+  },
+  {
+   "sku": "COMP-4410",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 25
+  },
+  {
+   "sku": "COMP-4410",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 25
+  },
+  {
+   "sku": "COMP-4410",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 23
+  },
+  {
+   "sku": "COMP-4410",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 27
+  },
+  {
+   "sku": "COMP-4410",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 22
+  },
+  {
+   "sku": "COMP-5010",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 220
+  },
+  {
+   "sku": "COMP-5010",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 240
+  },
+  {
+   "sku": "COMP-5010",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 230
+  },
+  {
+   "sku": "COMP-5010",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 230
+  },
+  {
+   "sku": "COMP-5010",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 226
+  },
+  {
+   "sku": "COMP-5010",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 234
+  },
+  {
+   "sku": "COMP-5010",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 204
+  },
+  {
+   "sku": "COMP-5020",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 152
+  },
+  {
+   "sku": "COMP-5020",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 168
+  },
+  {
+   "sku": "COMP-5020",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 160
+  },
+  {
+   "sku": "COMP-5020",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 164
+  },
+  {
+   "sku": "COMP-5020",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 156
+  },
+  {
+   "sku": "COMP-5020",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 160
+  },
+  {
+   "sku": "COMP-5020",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 144
+  },
+  {
+   "sku": "COMP-6001",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 76
+  },
+  {
+   "sku": "COMP-6001",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 83
+  },
+  {
+   "sku": "COMP-6001",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 80
+  },
+  {
+   "sku": "COMP-6001",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 82
+  },
+  {
+   "sku": "COMP-6001",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 75
+  },
+  {
+   "sku": "COMP-6001",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 84
+  },
+  {
+   "sku": "COMP-6001",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 71
+  },
+  {
+   "sku": "COMP-6010",
+   "source": "trailing_issues",
+   "month": "2026-04-01",
+   "qty": 28
+  },
+  {
+   "sku": "COMP-6010",
+   "source": "trailing_issues",
+   "month": "2026-05-01",
+   "qty": 31
+  },
+  {
+   "sku": "COMP-6010",
+   "source": "trailing_issues",
+   "month": "2026-06-01",
+   "qty": 30
+  },
+  {
+   "sku": "COMP-6010",
+   "source": "trailing_issues",
+   "month": "2026-07-01",
+   "qty": 32
+  },
+  {
+   "sku": "COMP-6010",
+   "source": "trailing_issues",
+   "month": "2026-08-01",
+   "qty": 29
+  },
+  {
+   "sku": "COMP-6010",
+   "source": "trailing_issues",
+   "month": "2026-09-01",
+   "qty": 30
+  },
+  {
+   "sku": "COMP-6010",
+   "source": "trailing_issues",
+   "month": "2026-10-01",
+   "qty": 27
+  },
+  {
+   "sku": "FG-100",
+   "source": "open_so",
+   "month": "2026-11-01",
+   "qty": 30
+  },
+  {
+   "sku": "FG-100",
+   "source": "open_po",
+   "month": "2026-11-01",
+   "qty": 10
+  },
+  {
+   "sku": "FG-400",
+   "source": "open_so",
+   "month": "2026-11-01",
+   "qty": 15
+  }
+ ],
+ "last_production": [
+  {
+   "sku": "FG-100",
+   "qty": 60,
+   "run_date": "2026-09-14"
+  },
+  {
+   "sku": "FG-400",
+   "qty": 40,
+   "run_date": "2026-08-24"
   }
  ]
 }

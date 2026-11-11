@@ -1,16 +1,18 @@
 {% load mrp_format %}
 <div class="breakdown">
-  <p class="breakdown-title">Where {{ plan.sku }} is used ({{ plan.component.lead_time_days|lead_time }} lead time)</p>
+  <p class="breakdown-title">Finished goods affected by {{ plan.sku }} ({{ plan.component.lead_time_days|lead_time }} lead time)</p>
   <table class="breakdown-table">
     <thead>
       <tr>
-        <th scope="col">Finished good</th>
+        <th scope="col">Finished good (BOM)</th>
         <th scope="col" class="num">Qty per unit</th>
         <th scope="col" class="num">FG demand / mo</th>
-        <th scope="col" class="num">FG on hand</th>
-        <th scope="col" class="num">Component / mo</th>
-        <th scope="col" class="num">Demand in lead time</th>
-        <th scope="col" class="num">In FG stock</th>
+        <th scope="col" class="num">FG stock</th>
+        <th scope="col" class="num">Months of stock</th>
+        <th scope="col" class="num">Last production run</th>
+        <th scope="col" class="num" title="Component used if the finished good is produced again in the size of its last run">Component for a run</th>
+        <th scope="col" class="num" title="Open sales orders that have no production order">On order, no production</th>
+        <th scope="col" class="num">Component needed</th>
       </tr>
     </thead>
     <tbody>
@@ -18,21 +20,22 @@
       <tr>
         <th scope="row"><span class="sku">{{ r.fg_sku }}</span>{% if r.fg_description %} · {{ r.fg_description }}{% endif %}</th>
         <td class="num">{{ r.qty_per|qty }}</td>
-        <td class="num">{{ r.fg_demand_per_month|qty }}</td>
+        <td class="num">{% if r.fg_demand_per_month is None %}<span class="muted">—</span>{% else %}{{ r.fg_demand_per_month|qty }}{% endif %}</td>
         <td class="num">{{ r.fg_on_hand|qty }}</td>
-        <td class="num">{{ r.component_per_month|qty }}</td>
-        <td class="num">{{ r.demand_in_lead_time|qty }}</td>
-        <td class="num">{{ r.embedded_qty|qty }}</td>
+        <td class="num">{% if r.months_of_stock is None %}<span class="muted">—</span>{% elif r.is_low %}<span class="text-danger strong">{{ r.months_of_stock|months }} mo</span><span class="sub">low</span>{% else %}{{ r.months_of_stock|months }} mo{% endif %}</td>
+        <td class="num">{% if r.last_run_qty is None %}<span class="muted">—</span>{% else %}{{ r.last_run_qty|qty }}<span class="sub">{{ r.last_run_date|date:"M j, Y" }}</span>{% endif %}</td>
+        <td class="num">{% if r.last_run_component_qty is None %}<span class="muted">—</span>{% else %}{{ r.last_run_component_qty|qty }}{% endif %}</td>
+        <td class="num">{% if r.fg_unproduced_orders %}{{ r.fg_unproduced_orders|qty }}{% else %}<span class="muted">0</span>{% endif %}</td>
+        <td class="num">{% if r.component_qty %}{{ r.component_qty|qty }}{% else %}<span class="muted">0</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
     <tfoot>
+      <tr><td colspan="9" class="muted">Monthly usage ({{ plan.usage_per_month|qty }}) is the trailing average of inventory issues (lines of type Issue). A finished good with one month of stock or less is marked low. Quantities on open orders with no production order are not in that history yet, so they are taken off the supply.</td></tr>
       <tr>
         <th scope="row">Total</th>
-        <td></td><td></td><td></td>
-        <td class="num strong">{{ plan.usage_per_month|qty }}</td>
-        <td class="num strong">{{ plan.demand_in_lead_time|qty }}</td>
-        <td class="num strong">{{ plan.embedded_stock|qty }}</td>
+        <td colspan="7"></td>
+        <td class="num strong">{{ plan.committed|qty }}</td>
       </tr>
     </tfoot>
   </table>

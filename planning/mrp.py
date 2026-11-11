@@ -11,6 +11,9 @@ from typing import Iterable, Optional
 
 from .models import (
     STATUS_RANK,
+    BASIS_CUSTOM,
+    BASIS_SIX,
+    BASIS_TWO_YEAR,
     BomLine,
     ComponentInput,
     ComponentPlan,
@@ -24,21 +27,29 @@ from .models import (
 
 DAYS_PER_MONTH = Decimal(30)
 ZERO = Decimal(0)
-MAX_COVER_MONTHS = 4
+MAX_COVER_MONTHS = 4   # kept for the stored (now unused) cover setting
+MIN_LEAD_DAYS = 7
+MIN_PREPARE_DAYS = 7    # time to prepare an order after the lead time, at least
+PREPARE_LEAD_FRACTION = Decimal(1) / 3   # the longer the lead time, the more time to prepare
+
+
+def effective_lead_days(lead_time_days: Optional[int]) -> Decimal:
+    """The lead time used for planning: never less than a week, even when none is set."""
+    return Decimal(max(lead_time_days or 0, MIN_LEAD_DAYS))
 
 
 def lead_time_months(lead_time_days: Optional[int]) -> Decimal:
-    if not lead_time_days or lead_time_days < 0:
-        return ZERO
-    return Decimal(lead_time_days) / DAYS_PER_MONTH
+    """The red line: the lead time, at least 7 days."""
+    return effective_lead_days(lead_time_days) / DAYS_PER_MONTH
 
 
 def demand_in_lead_time(usage_per_month: Decimal, lt_months: Decimal) -> Decimal:
     return usage_per_month * lt_months
 
 
-def supply_position(on_hand: Decimal, on_order: Decimal, embedded_stock: Decimal) -> Decimal:
-    return on_hand + on_order + embedded_stock
+def supply_position(on_hand: Decimal, on_order: Decimal, committed: Decimal,
+                    in_receiving: Decimal = ZERO) -> Decimal:
+    return on_hand + on_order + in_receiving - committed
 
 
 def months_of_supply(supply: Decimal, usage_per_month: Decimal) -> Optional[Decimal]:
@@ -48,10 +59,21 @@ def months_of_supply(supply: Decimal, usage_per_month: Decimal) -> Optional[Deci
     return supply / usage_per_month
 
 
-def target_months(lt_months: Decimal, cover_months: int) -> Decimal:
-    if not 0 <= cover_months <= MAX_COVER_MONTHS:
-        raise ValueError(f'cover_months must be 0..{MAX_COVER_MONTHS}, got {cover_months}')
-    return lt_months + Decimal(cover_months)
+def target_months(lead_time_days: Optional[int]) -> Decimal:
+    """The reorder point: the lead time (at least 7 days) plus time to prepare the order, which is a
+    third of the lead time and at least 7 days. A week or less of lead time gives 14 days; 3 months
+    gives 4 months."""
+    lead = effective_lead_days(lead_time_days)
+    prepare = max(Decimal(MIN_PREPARE_DAYS), lead * PREPARE_LEAD_FRACTION)
+    return (lead + prepare) / DAYS_PER_MONTH
+
+
+MIN_ORDER_LEAD_FACTOR = Decimal('1.2')   # an order covers at least the lead time's demand plus 20%
+
+
+def minimum_order(usage_per_month: Decimal, lt_months: Decimal) -> Decimal:
+    """The least worth ordering once an order is needed: usage over the lead time, plus 20%."""
+    return max(usage_per_month, ZERO) * lt_months * MIN_ORDER_LEAD_FACTOR
 
 
 def needed_qty(usage_per_month: Decimal, target: Decimal, supply: Decimal) -> Decimal:
@@ -80,13 +102,15 @@ def order_by_date(
 
     Computed as supply/usage x 30 - lead_time_days to avoid rounding through
     months; fractional days are floored (order a day early rather than late).
-    Returns None when there is no usage.
+    Returns None when there is no usage or the date is beyond the calendar.
     """
     if usage_per_month <= 0:
         return None
     days = supply / usage_per_month * DAYS_PER_MONTH - Decimal(lead_time_days or 0)
     whole_days = int(days.to_integral_value(rounding=ROUND_FLOOR))
-    return today + dt.timedelta(days=whole_days)
+    if whole_days > (dt.date.max - today).days:
+        return None      # so far out it never needs ordering
+    return today + dt.timedelta(days=max(whole_days, (dt.date.min - today).days))
 
 
 def plan_status(mos: Optional[Decimal], lt_months: Decimal, target: Decimal,
@@ -106,39 +130,43 @@ def build_usage(
     component_sku: str,
     bom_lines: Iterable[BomLine],
     finished_goods: dict[str, FinishedGood],
-    lt_months: Decimal,
-) -> tuple[list[FgUsage], set[Flag]]:
-    """Breakdown of each finished good that uses the component."""
+) -> list[FgUsage]:
+    """Each finished good that uses the component, with the open orders for it that have no production order."""
     rows: list[FgUsage] = []
-    flags: set[Flag] = set()
     for line in bom_lines:
         if line.component_sku != component_sku:
             continue
         fg = finished_goods.get(line.fg_sku) or FinishedGood(sku=line.fg_sku)
-        if fg.demand_per_month is None:
-            flags.add(Flag.MISSING_FG_DEMAND)
-        fg_demand = fg.demand_per_month or ZERO
-        per_month = fg_demand * line.qty_per
         rows.append(FgUsage(
             fg_sku=fg.sku,
             fg_description=fg.description,
             qty_per=line.qty_per,
-            fg_demand_per_month=fg_demand,
+            fg_demand_per_month=fg.demand_per_month,
             fg_on_hand=fg.on_hand,
-            component_per_month=per_month,
-            demand_in_lead_time=per_month * lt_months,
-            # A back-ordered finished good (negative stock) contains no components
-            embedded_qty=max(fg.on_hand, ZERO) * line.qty_per,
+            last_run_qty=fg.last_run_qty,
+            last_run_date=fg.last_run_date,
+            fg_unproduced_orders=fg.unproduced_orders,
+            component_qty=fg.unproduced_orders * line.qty_per,
         ))
-    rows.sort(key=lambda r: (-r.component_per_month, r.fg_sku))
-    return rows, flags
+    rows.sort(key=lambda r: (-r.component_qty, r.fg_sku))
+    return rows
+
+
+def chosen_usage(component: ComponentInput) -> tuple[Decimal, str]:
+    """The monthly usage the planner chose for this item, and the basis it came from. A choice with no
+    figure behind it (no history, or a custom usage that was cleared) falls back to the recent usage."""
+    recent = component.issue_demand_per_month or ZERO
+    if component.usage_basis == BASIS_TWO_YEAR and component.long_term_usage is not None:
+        return component.long_term_usage, BASIS_TWO_YEAR
+    if component.usage_basis == BASIS_CUSTOM and component.custom_usage is not None:
+        return component.custom_usage, BASIS_CUSTOM
+    return recent, BASIS_SIX
 
 
 def plan_component(
     component: ComponentInput,
     bom_lines: Iterable[BomLine],
     finished_goods: dict[str, FinishedGood],
-    cover_months: int,
     qty_mode: QtyMode,
     today: dt.date,
 ) -> ComponentPlan:
@@ -149,34 +177,43 @@ def plan_component(
         flags.add(Flag.NO_VENDOR)
 
     lt_months = lead_time_months(component.lead_time_days)
-    breakdown, usage_flags = build_usage(component.sku, bom_lines, finished_goods, lt_months)
-    flags |= usage_flags
-    if not breakdown:
-        flags.add(Flag.NO_BOM)
+    # A bought finished good has nothing built from it to show
+    breakdown = [] if component.is_finished_good else build_usage(component.sku, bom_lines, finished_goods)
+    if component.earliest_promised and component.earliest_promised < today:
+        flags.add(Flag.PO_LATE)
+    # Vendor set-up warnings, unless someone marked them done within the last week
+    if component.has_vendor_rows and not component.default_vendor_id:
+        if Flag.NO_DEFAULT_VENDOR.value not in component.acked_warnings:
+            flags.add(Flag.NO_DEFAULT_VENDOR)
+    elif (component.default_vendor_id and component.last_po_vendor_id
+          and component.last_po_vendor_id.strip().upper() != component.default_vendor_id.strip().upper()):
+        if Flag.VENDOR_MISMATCH.value not in component.acked_warnings:
+            flags.add(Flag.VENDOR_MISMATCH)
 
-    usage = sum((r.component_per_month for r in breakdown), ZERO)
-    embedded = sum((r.embedded_qty for r in breakdown), ZERO)
-    if breakdown and usage <= 0:
+    # Usage is the issue history. Open orders for finished goods with no production order yet are not in
+    # that history, so the components they need are committed against supply.
+    committed = sum((r.component_qty for r in breakdown), ZERO)
+    has_history = component.issue_demand_per_month is not None
+    usage, basis = chosen_usage(component)
+    if not breakdown and not has_history and not component.is_finished_good:
+        flags.add(Flag.NO_BOM)
+    if (breakdown or has_history) and usage <= 0:
         flags.add(Flag.NO_USAGE)
 
-    supply = supply_position(component.on_hand, component.on_order, embedded)
+    supply = supply_position(component.on_hand, component.on_order, committed, component.in_receiving)
     mos = months_of_supply(supply, usage)
-    target = target_months(lt_months, cover_months)
+    target = target_months(component.lead_time_days)
     needed = needed_qty(usage, target, supply)
     suggested = round_up_to_lot(needed, component.lot_size)
+    if suggested > 0:
+        # An order is never smaller than the lead time's demand plus 20%, whatever is already in stock
+        suggested = max(suggested, round_up_to_lot(minimum_order(usage, lt_months), component.lot_size))
 
     if suggested > 0 and qty_mode == QtyMode.MATCH_LAST_PO:
         if component.last_po_qty and component.last_po_qty > 0:
             suggested = component.last_po_qty
         else:
             flags.add(Flag.NO_PO_HISTORY)
-
-    if component.unit_cost is None:
-        estimated_cost = None
-        if suggested > 0:
-            flags.add(Flag.MISSING_COST)
-    else:
-        estimated_cost = suggested * component.unit_cost
 
     obd = order_by_date(today, supply, usage, component.lead_time_days)
     status = plan_status(mos, lt_months, target, supply)
@@ -185,15 +222,15 @@ def plan_component(
         component=component,
         breakdown=breakdown,
         usage_per_month=usage,
+        usage_basis=basis,
         lead_time_months=lt_months,
         demand_in_lead_time=demand_in_lead_time(usage, lt_months),
-        embedded_stock=embedded,
+        committed=committed,
         supply_position=supply,
         months_of_supply=mos,
         target_months=target,
         needed=needed,
         suggested_qty=suggested,
-        estimated_cost=estimated_cost,
         order_by_date=obd,
         order_now=obd is not None and obd <= today,
         status=status,
@@ -215,7 +252,6 @@ def plan_components(
     components: Iterable[ComponentInput],
     bom_lines: Iterable[BomLine],
     finished_goods: Iterable[FinishedGood],
-    cover_months: int,
     qty_mode: QtyMode,
     today: dt.date,
 ) -> list[ComponentPlan]:
@@ -225,7 +261,7 @@ def plan_components(
         bom_by_component[line.component_sku].append(line)
     fg_map = {fg.sku: fg for fg in finished_goods}
     plans = [
-        plan_component(c, bom_by_component.get(c.sku, []), fg_map, cover_months, qty_mode, today)
+        plan_component(c, bom_by_component.get(c.sku, []), fg_map, qty_mode, today)
         for c in components
     ]
     plans.sort(key=urgency_key)
@@ -236,7 +272,6 @@ def summarize(plans: list[ComponentPlan]) -> PlanSummary:
     to_order = [p for p in plans if p.needs_order]
     order_dates = [p.order_by_date for p in to_order if p.order_by_date is not None]
     next_date = min(order_dates) if order_dates else None
-    costed = [p for p in to_order if p.estimated_cost is not None]
     return PlanSummary(
         shown=len(plans),
         components_to_order=len(to_order),
@@ -244,7 +279,5 @@ def summarize(plans: list[ComponentPlan]) -> PlanSummary:
         next_order_by=next_date,
         next_order_now=any(p.order_now for p in to_order),
         late_count=sum(1 for p in to_order if p.order_now),
-        estimated_value=sum((p.estimated_cost for p in costed), ZERO),
         vendor_count=len({p.component.vendor_id for p in to_order if p.component.vendor_id}),
-        missing_cost_count=len(to_order) - len(costed),
     )

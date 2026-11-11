@@ -1,3 +1,4 @@
+import collections
 import datetime as dt
 import unittest
 from decimal import Decimal as D
@@ -30,9 +31,9 @@ class FakeClient:
         return self.records[name]
 
 
-def item(sku, base='EACH', conversions=(), warehouses=(), vendors=(), last_cost=None, **extra):
+def item(sku, base='EACH', conversions=(), warehouses=(), vendors=(), **extra):
     return {'InventoryID': sku, 'Description': f'{sku} desc', 'ItemClass': 'CLS', 'BaseUOM': base,
-            'LastCost': last_cost, 'UOMConversions': list(conversions), 'WarehouseDetails': list(warehouses),
+            'UOMConversions': list(conversions), 'WarehouseDetails': list(warehouses),
             'VendorDetails': list(vendors), **extra}
 
 
@@ -61,14 +62,14 @@ def base_records():
             item('C-BOLT', conversions=[conv('BOX', 100)],
                  warehouses=[{'WarehouseID': 'MAIN', 'QtyOnHand': 250}, {'WarehouseID': 'WEST', 'QtyOnHand': 50}],
                  vendors=[{'VendorID': 'V1', 'Default': True, 'Active': True, 'Warehouse': None,
-                           'LeadTimeDays': 14, 'AddLeadTimeDays': 2, 'LastVendorPrice': 12.0, 'LotSize': 5,
+                           'LeadTimeDays': 14, 'AddLeadTimeDays': 2, 'LotSize': 5,
                            'PurchaseUnit': 'BOX'},
                           {'VendorID': 'V1', 'Default': False, 'Active': True, 'Warehouse': 'WEST',
-                           'LeadTimeDays': 99, 'LastVendorPrice': 1, 'PurchaseUnit': 'EACH'},
+                           'LeadTimeDays': 99, 'PurchaseUnit': 'EACH'},
                           {'VendorID': 'V2', 'Default': False, 'Active': False, 'LeadTimeDays': 7}]),
-            item('C-PLATE', last_cost=3.5,
+            item('C-PLATE',
                  vendors=[{'VendorID': 'V2', 'Default': True, 'Active': True, 'LeadTimeDays': None,
-                           'LastVendorPrice': 0, 'PurchaseUnit': 'EACH'}]),
+                           'PurchaseUnit': 'EACH'}]),
             item('C-OIL', base='L', conversions=[conv('ML', 1000, op='Divide', to='L')]),
             item('UNRELATED'),
         ],
@@ -78,20 +79,55 @@ def base_records():
             {'OrderNbr': 'PO1', 'Type': 'Normal', 'Status': 'Open', 'Date': '2026-09-01T00:00:00-07:00', 'VendorID': 'V1',
              'Details': [
                  {'LineNbr': 1, 'LineType': 'Goods for IN', 'InventoryID': 'C-BOLT', 'UOM': 'BOX', 'OrderQty': 3,
-                  'QtyOnReceipts': 1, 'UnitCost': 12, 'Promised': '2026-11-15T00:00:00', 'Completed': False,
+                  'QtyOnReceipts': 1, 'Promised': '2026-11-15T00:00:00', 'Completed': False,
                   'Cancelled': False},
                  {'LineNbr': 2, 'LineType': 'Non-Stock', 'InventoryID': 'C-PLATE', 'UOM': 'EACH', 'OrderQty': 9},
                  {'LineNbr': 3, 'LineType': 'Goods for IN', 'InventoryID': 'C-PLATE', 'UOM': 'CRATE', 'OrderQty': 9},
              ]},
             {'OrderNbr': 'PO0', 'Type': 'Normal', 'Status': 'Closed', 'Date': '2026-03-01T00:00:00', 'VendorID': 'V2',
              'Details': [{'LineNbr': 1, 'LineType': 'Goods for IN', 'InventoryID': 'C-PLATE', 'UOM': 'EACH',
-                          'OrderQty': 40, 'QtyOnReceipts': 40, 'UnitCost': 3.25, 'Completed': True,
+                          'OrderQty': 40, 'QtyOnReceipts': 40, 'Completed': True,
                           'Cancelled': False}]},
+            {'OrderNbr': 'PO9', 'Type': 'Normal', 'Status': 'Completed', 'Date': '2026-09-20T00:00:00', 'VendorID': 'V2',
+             'Details': [{'LineNbr': 1, 'LineType': 'Goods for IN', 'InventoryID': 'C-PLATE', 'UOM': 'EACH',
+                          'OrderQty': 50, 'QtyOnReceipts': 0, 'Completed': True, 'Cancelled': False}]},
         ],
-        'Shipment': [
-            {'ShipmentNbr': 'S1', 'ShipmentDate': '2026-09-10T00:00:00', 'Status': 'Completed',
-             'Details': [{'InventoryID': 'FG-1', 'ShippedQty': 6, 'UOM': 'EACH'},
-                         {'InventoryID': 'C-BOLT', 'ShippedQty': 999, 'UOM': 'EACH'}]},
+        'SalesInvoice': [
+            {'ReferenceNbr': 'I1', 'Type': 'Invoice', 'Date': '2026-09-10T00:00:00', 'Status': 'Closed',
+             'Details': [{'InventoryID': 'FG-1', 'Qty': 8, 'UOM': 'EACH'}, {'InventoryID': 'C-BOLT', 'Qty': 5, 'UOM': 'EACH'}]},
+            {'ReferenceNbr': 'CM1', 'Type': 'Credit Memo', 'Date': '2026-09-12T00:00:00', 'Status': 'Open',
+             'Details': [{'InventoryID': 'FG-1', 'Qty': 2, 'UOM': 'EACH'}]},
+        ],
+        'InventoryIssue': [
+            {'ReferenceNbr': 'IS1', 'Date': '2026-09-10T00:00:00', 'Status': 'Released',
+             'Details': [{'InventoryID': 'C-BOLT', 'Qty': 999, 'UOM': 'EACH', 'TranType': 'Issue'},
+                        {'InventoryID': 'C-BOLT', 'Qty': 98000, 'UOM': 'EACH', 'TranType': 'Invoice'},
+                         {'InventoryID': 'C-BOLT', 'Qty': 9, 'UOM': 'EACH', 'TranType': 'Credit Memo'},
+                         {'InventoryID': 'FG-1', 'Qty': 3, 'UOM': 'EACH', 'TranType': 'Issue'},
+                         {'InventoryID': 'UNRELATED', 'Qty': 4, 'UOM': 'EACH', 'TranType': 'Issue'}]},
+        ],
+        'KitAssembly': [
+            {'ReferenceNbr': 'K1', 'Type': 'Assembly', 'Status': 'Released', 'Date': '2026-09-15T00:00:00',
+             'KitInventoryID': 'FG-1', 'Qty': 3, 'UOM': 'EACH',
+             'StockComponents': [{'StockInventoryID': 'C-PLATE', 'Qty': 30, 'UOM': 'EACH'},
+                                 {'StockInventoryID': 'SA-1', 'Qty': 3, 'UOM': 'EACH'}]},
+            {'ReferenceNbr': 'K2', 'Type': 'Disassembly', 'Status': 'Released', 'Date': '2026-09-20T00:00:00',
+             'KitInventoryID': 'SA-1', 'Qty': 1, 'UOM': 'EACH',
+             'StockComponents': [{'StockInventoryID': 'C-PLATE', 'Qty': 5, 'UOM': 'EACH'}]},
+        ],
+        'ProductionOrder': [
+            {'id': 'p1', 'ProductionNbr': 'WO1', 'InventoryID': 'FG-1', 'Status': 'Released', 'QtyRemaining': 12,
+             'UOM': 'EACH', 'EndDate': '2026-11-10T00:00:00'},
+            {'id': 'p0', 'ProductionNbr': 'WO0', 'InventoryID': 'FG-1', 'Status': 'Completed', 'QtytoProduce': 50,
+             'UOM': 'EACH', 'EndDate': '2026-08-10T00:00:00'},
+            {'id': 'p00', 'ProductionNbr': 'WO00', 'InventoryID': 'FG-1', 'Status': 'Closed', 'QtytoProduce': 30,
+             'UOM': 'EACH', 'EndDate': '2026-05-10T00:00:00'},
+        ],
+        'ProductionOrderDetail': [
+            {'id': 'p1', 'ProductionNbr': 'WO1', 'Operations': [{'Material': [
+                {'InventoryID': 'C-PLATE', 'QtyRemaining': 24, 'UOM': 'EACH', 'Byproduct': False},
+                {'InventoryID': 'C-BOLT', 'QtyRemaining': 7, 'UOM': 'EACH', 'Byproduct': True},
+                {'InventoryID': 'NON-STOCK', 'QtyRemaining': 9, 'UOM': 'EACH'}]}]},
         ],
         'SalesOrder': [
             {'OrderType': 'SO', 'OrderNbr': 'SO1', 'Status': 'Open', 'RequestedOn': '2026-11-20T00:00:00',
@@ -102,7 +138,7 @@ def base_records():
     }
 
 
-def run(records=None, sources=('trailing_shipments',), deny=()):
+def run(records=None, sources=('trailing_invoices',), deny=()):
     client = FakeClient(records or base_records(), deny=deny)
     return fetch_all(client, FetchOptions(today=TODAY, demand_sources=list(sources))), client
 
@@ -117,7 +153,6 @@ class UnitsTests(unittest.TestCase):
         self.assertEqual(u.qty('A', 1, None), D(1))
         self.assertIsNone(u.qty('A', 1, 'PALLET'))
         self.assertIsNone(u.qty('UNKNOWN', 1, 'EACH'))
-        self.assertEqual(u.unit_cost('A', 24, 'BOX'), D(2))
 
 
 class ExplodeTests(unittest.TestCase):
@@ -150,6 +185,16 @@ class FetchAllTests(unittest.TestCase):
         self.assertEqual(kinds, {'FG-1': 'finished_good', 'SA-1': 'finished_good', 'C-BOLT': 'component',
                                  'C-PLATE': 'component', 'C-OIL': 'component'})
 
+    def test_compounding_skus_excluded(self):
+        records = base_records()
+        records['BillOfMaterial'][0]['Operations'][0]['Material'].append(material('XLDXRX-001', 1))
+        records['BillOfMaterial'].append(bom('XLDXRX-FG', [material('C-PLATE', 1)]))
+        records['StockItem'] += [item('XLDXRX-001'), item('XLDXRX-FG')]
+        result, _ = run(records)
+        skus = {r['sku'] for r in result.data['stock_items']}
+        self.assertFalse({s for s in skus if s.startswith('XLDXRX')})
+        self.assertFalse([r for r in result.data['bom'] if 'XLDXRX' in r['fg_sku'] + r['component_sku']])
+
     def test_on_hand(self):
         result, _ = run()
         bolts = {r['warehouse']: r['qty'] for r in result.data['on_hand'] if r['sku'] == 'C-BOLT'}
@@ -160,13 +205,11 @@ class FetchAllTests(unittest.TestCase):
         iv = {(r['sku'], r['vendor_id']): r for r in result.data['item_vendors']}
         bolt = iv[('C-BOLT', 'V1')]
         self.assertEqual(bolt['lead_time_days'], 16)          # 14 + 2 additional
-        self.assertEqual(bolt['last_cost'], D('0.12'))        # $12 per BOX of 100
         self.assertEqual(bolt['lot_size'], D(500))            # 5 BOX
         self.assertTrue(bolt['is_default'])
         self.assertNotIn(('C-BOLT', 'V2'), iv)                # inactive vendor line
         plate = iv[('C-PLATE', 'V2')]
         self.assertIsNone(plate['lead_time_days'])            # falls back to vendor lead time in planning
-        self.assertEqual(plate['last_cost'], D('3.5'))        # no vendor price -> item last cost
 
     def test_purchase_orders(self):
         result, _ = run()
@@ -175,8 +218,8 @@ class FetchAllTests(unittest.TestCase):
             'promised_date': dt.date(2026, 11, 15), 'order_date': dt.date(2026, 9, 1)}])
         history = {(r['order_nbr'], r['sku']): r for r in result.data['po_history']}
         self.assertEqual(history[('PO1', 'C-BOLT')]['qty'], D(300))
-        self.assertEqual(history[('PO1', 'C-BOLT')]['unit_cost'], D('0.12'))
         self.assertEqual(history[('PO0', 'C-PLATE')]['order_date'], dt.date(2026, 3, 1))
+        self.assertNotIn(('PO9', 'C-PLATE'), history)    # closed with nothing received: dropped, not a purchase
         self.assertTrue(any('CRATE' in w and 'PO1' in w for w in result.warnings))
 
     def test_purchase_order_filter_is_normal_type_only(self):
@@ -185,16 +228,46 @@ class FetchAllTests(unittest.TestCase):
         self.assertTrue(po_filter.startswith("Type eq 'Normal' and ("))
         self.assertIn("Date ge datetimeoffset'2024-10-01T00:00:00Z'", po_filter)
 
-    def test_shipment_demand_only_for_bom_parents(self):
+    def test_invoice_demand_for_finished_goods(self):
         result, client = run()
-        self.assertEqual(result.data['demand'], [
-            {'sku': 'FG-1', 'source': 'trailing_shipments', 'month': dt.date(2026, 9, 10), 'qty': D(6)}])
-        ship_filter = next(f for _, entity, f in client.calls if entity == 'Shipment')
-        self.assertIn("Operation eq 'Issue'", ship_filter)
+        fg = [r for r in result.data['demand'] if r['source'] == 'trailing_invoices']
+        self.assertEqual({r['sku'] for r in fg}, {'FG-1'})           # components are not finished-good demand
+        self.assertEqual(sum(r['qty'] for r in fg), D(6))            # 8 invoiced - 2 credit memo
+        invoice_filter = next(f for _, entity, f in client.calls if entity == 'SalesInvoice')
+        self.assertIn("(Status eq 'Open' or Status eq 'Closed')", invoice_filter)
+
+    def test_issue_history_for_components(self):
+        result, client = run()
+        issues = [r for r in result.data['demand'] if r['source'] == 'trailing_issues']
+        self.assertEqual({r['sku'] for r in issues}, {'C-BOLT'})     # not FG-1, not UNRELATED
+        self.assertEqual(sum(r['qty'] for r in issues), D(999))      # Issue lines only: no direct sales, no returns
+        issue_filter = next(f for _, entity, f in client.calls if entity == 'InventoryIssue')
+        self.assertIn("Status eq 'Released'", issue_filter)
+
+    def test_assembly_out(self):
+        result, _ = run()
+        rows = [r for r in result.data['demand'] if r['source'] == 'trailing_assembly']
+        by_sku = collections.defaultdict(D)
+        for r in rows:
+            by_sku[r['sku']] += r['qty']
+        # assembly consumes 30 plates + 3 subassemblies; disassembly returns 5 plates and consumes the kit (SA-1)
+        self.assertEqual(dict(by_sku), {'C-PLATE': D(25), 'SA-1': D(4)})
+
+    def test_open_orders_for_so_po_column(self):
+        result, _ = run(sources=('trailing_invoices',))
+        so = [r for r in result.data['demand'] if r['source'] == 'open_so']
+        po = [r for r in result.data['demand'] if r['source'] == 'open_po']
+        self.assertEqual(sum(r['qty'] for r in so if r['sku'] == 'FG-1'), D(4))
+        by_sku = collections.defaultdict(D)
+        for r in po:
+            by_sku[r['sku']] += r['qty']
+        # 12 FG-1 still to produce; plates still to issue; no by-products or non-stock materials
+        self.assertEqual(dict(by_sku), {'FG-1': D(12), 'C-PLATE': D(24)})
 
     def test_open_sales_orders(self):
         result, client = run(sources=('open_sales_orders',))
-        self.assertEqual(result.data['demand'], [
+        fg = [r for r in result.data['demand'] if r['source'] == 'open_sales_orders']
+        self.assertEqual(fg, [
             {'sku': 'FG-1', 'source': 'open_sales_orders', 'month': dt.date(2026, 11, 20), 'qty': D(4)}])
         so_filter = next(f for _, entity, f in client.calls if entity == 'SalesOrder')
         self.assertIn("OrderType eq 'SO'", so_filter)
@@ -265,6 +338,106 @@ class FetchAllTests(unittest.TestCase):
         self.assertEqual(rows['C-BOLT']['replenishment_source'], 'Mixed')
         self.assertEqual(rows['C-OIL']['replenishment_source'], '')
         self.assertEqual(rows['SA-1']['item_type'], 'Subassembly')
+
+    def test_purchased_finished_good_gets_item_vendors(self):
+        records = base_records()
+        for item in records['StockItem']:
+            if item['InventoryID'] == 'FG-1':
+                item['ReplenishmentParameters'] = [{'Source': 'Purchase'}]
+                item['VendorDetails'] = [{'VendorID': 'V1', 'Default': True, 'Active': True, 'LeadTimeDays': 20}]
+        result, _ = run(records)
+        iv = {(r['sku'], r['vendor_id']): r for r in result.data['item_vendors']}
+        self.assertEqual(iv[('FG-1', 'V1')]['lead_time_days'], 20)
+        # a finished good that is built gets none
+        records = base_records()
+        for item in records['StockItem']:
+            if item['InventoryID'] == 'FG-1':
+                item['VendorDetails'] = [{'VendorID': 'V1', 'Default': True, 'Active': True, 'LeadTimeDays': 20}]
+        result, _ = run(records)
+        self.assertNotIn('FG-1', {r['sku'] for r in result.data['item_vendors']})
+
+    def test_bought_item_in_no_bom_is_kept(self):
+        records = base_records()
+        records['StockItem'].append(item('KIT-BOX', vendors=[
+            {'VendorID': 'V1', 'Default': True, 'Active': True, 'LeadTimeDays': 30}]))
+        records['StockItem'].append(item('NO-VENDOR'))
+        made = item('MADE', vendors=[{'VendorID': 'V1', 'Default': True, 'Active': True}])
+        made['ReplenishmentParameters'] = [{'Source': 'Manufacturing'}]
+        records['StockItem'].append(made)
+        result, _ = run(records)
+        rows = {r['sku']: r for r in result.data['stock_items']}
+        self.assertEqual(rows['KIT-BOX']['kind'], 'finished_good')
+        self.assertNotIn('NO-VENDOR', rows)
+        self.assertNotIn('MADE', rows)
+        iv = {(r['sku'], r['vendor_id']) for r in result.data['item_vendors']}
+        self.assertIn(('KIT-BOX', 'V1'), iv)
+
+    def test_quantity_in_receiving(self):
+        records = base_records()
+        gi = 'DB-StorageDetailsByItemWarehouseLocation'
+        records[gi] = [
+            {'InventoryID': 'C-BOLT  ', 'WarehouseID': 'MAIN', 'LocationID': 'REC-INS   ', 'QtyOnHandinLocation': '40.000000'},
+            {'InventoryID': 'C-BOLT  ', 'WarehouseID': 'MAIN', 'LocationID': 'REC-INS   ', 'QtyOnHandinLocation': '40.000000'},  # repeated join row
+            {'InventoryID': 'C-BOLT  ', 'WarehouseID': 'WEST', 'LocationID': 'REC-INS', 'QtyOnHandinLocation': '10'},
+            {'InventoryID': 'C-BOLT  ', 'WarehouseID': 'MAIN', 'LocationID': 'FG-01', 'QtyOnHandinLocation': '999'},
+            {'InventoryID': 'C-PLATE', 'WarehouseID': 'MAIN', 'LocationID': 'REC-INS', 'QtyOnHandinLocation': '0'},
+        ]
+        result, _ = run(records)
+        rows = {r['sku']: r for r in result.data['stock_items']}
+        self.assertEqual(rows['C-BOLT']['qty_receiving'], D(50))      # two warehouses, repeats counted once
+        self.assertEqual(rows['C-PLATE']['qty_receiving'], D(0))
+        # GI unreadable: nothing is counted and the sync says so
+        result, _ = run(base_records())
+        self.assertTrue(all(r['qty_receiving'] is None for r in result.data['stock_items']))
+        self.assertTrue(any('in receiving' in w.lower() for w in result.warnings))
+
+    def test_source_comes_from_the_inventory_planning_warehouse_row(self):
+        warehouse = lambda source: {'WarehouseID': 'MAIN', 'QtyOnHand': 1, 'ReplenishmentSource': source}
+        # the class says Purchase, the planning tab says Manufacturing: the tab wins
+        made = {'WarehouseDetails': [warehouse('Manufacturing')], 'ReplenishmentParameters': [{'Source': 'Purchase'}]}
+        self.assertEqual(entities.replenishment_source(made), 'Manufacturing')
+        kit = {'WarehouseDetails': [warehouse('Kit Assembly')], 'ReplenishmentParameters': [{'Source': 'Manufacturing'}]}
+        self.assertEqual(entities.replenishment_source(kit), 'Kit Assembly')
+        both = {'WarehouseDetails': [warehouse('Purchase'), warehouse('Manufacturing')]}
+        self.assertEqual(entities.replenishment_source(both), 'Mixed')
+        # no warehouse source: fall back to the class
+        self.assertEqual(entities.replenishment_source(
+            {'WarehouseDetails': [warehouse(None)], 'ReplenishmentParameters': [{'Source': 'Purchase'}]}), 'Purchase')
+        self.assertEqual(entities.replenishment_source({}), '')
+
+    def test_planning_method_and_source_come_from_the_stock_item_inquiry(self):
+        records = base_records()
+        records['IN-StockItem'] = [
+            {'InventoryID': 'C-BOLT   ', 'PlanningMethod': 'MRP', 'Source': 'Purchase'},
+            {'InventoryID': 'C-PLATE', 'PlanningMethod': 'None', 'Source': 'Manufacturing'},
+            {'InventoryID': 'SA-1', 'PlanningMethod': 'MRP', 'Source': 'Kit Assembly'},
+        ]
+        for it in records['StockItem']:
+            if it['InventoryID'] == 'C-PLATE':   # the API says Purchase; the inquiry (the screen) says Manufacturing
+                it['ReplenishmentParameters'] = [{'Source': 'Purchase', 'Method': 'None'}]
+        result, _ = run(records)
+        rows = {r['sku']: r for r in result.data['stock_items']}
+        self.assertEqual((rows['C-BOLT']['planning_method'], rows['C-BOLT']['replenishment_source']), ('MRP', 'Purchase'))
+        self.assertEqual((rows['C-PLATE']['planning_method'], rows['C-PLATE']['replenishment_source']), ('None', 'Manufacturing'))
+        self.assertEqual(rows['SA-1']['replenishment_source'], 'Kit Assembly')
+        # an item the inquiry does not list keeps the API source and has no planning method
+        self.assertEqual(rows['C-OIL']['planning_method'], '')
+
+    def test_inquiry_unreadable_falls_back_to_the_api_source(self):
+        records = base_records()
+        for it in records['StockItem']:
+            if it['InventoryID'] == 'C-PLATE':
+                it['ReplenishmentParameters'] = [{'Source': 'Manufacturing', 'Method': 'None'}]
+        result, _ = run(records)
+        rows = {r['sku']: r for r in result.data['stock_items']}
+        self.assertEqual(rows['C-PLATE']['replenishment_source'], 'Manufacturing')
+        self.assertTrue(all(r['planning_method'] == '' for r in rows.values()))
+        self.assertTrue(any('IN-StockItem' in w for w in result.warnings))
+
+    def test_last_production_run(self):
+        result, _ = run()
+        self.assertEqual(result.data['last_production'],
+                         [{'sku': 'FG-1', 'qty': D(50), 'run_date': dt.date(2026, 8, 10)}])
 
     def test_months_ago(self):
         self.assertEqual(entities.months_ago(dt.date(2026, 2, 14), 3), dt.date(2025, 11, 1))

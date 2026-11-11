@@ -15,7 +15,7 @@ class Command(BaseCommand):
         parser.add_argument('--demand-source', action='append', choices=list(DEMAND_SOURCES),
                             help='Demand source(s) to pull. Default: the source chosen in plan settings.')
         parser.add_argument('--all-demand', action='store_true',
-                            help='Pull trailing shipments and open sales orders.')
+                            help='Pull trailing invoices and open sales orders.')
         parser.add_argument('--user-id', type=int, help='User who asked for the refresh (set by the web page).')
 
     def handle(self, *args, **options):
@@ -24,7 +24,7 @@ class Command(BaseCommand):
                                'ACUMATICA_USERNAME and ACUMATICA_PASSWORD (see .env.example), '
                                'or use seed_demo / import_data instead.')
         if options['all_demand']:
-            sources = ['trailing_shipments', 'open_sales_orders']
+            sources = ['trailing_invoices', 'open_sales_orders']
         else:
             sources = options['demand_source']
         try:

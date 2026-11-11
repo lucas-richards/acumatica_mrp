@@ -49,13 +49,19 @@ class BomLineAdmin(ReadOnlyAdmin):
 
 @admin.register(models.ItemVendor)
 class ItemVendorAdmin(ReadOnlyAdmin):
-    list_display = ('sku', 'vendor_id', 'is_default', 'lead_time_days', 'last_cost', 'lot_size')
+    list_display = ('sku', 'vendor_id', 'is_default', 'lead_time_days', 'lot_size')
     search_fields = ('sku', 'vendor_id')
+
+
+@admin.register(models.LastProduction)
+class LastProductionAdmin(ReadOnlyAdmin):
+    list_display = ('sku', 'qty', 'run_date')
+    search_fields = ('sku',)
 
 
 @admin.register(models.PoHistory)
 class PoHistoryAdmin(ReadOnlyAdmin):
-    list_display = ('order_nbr', 'sku', 'vendor_id', 'order_date', 'qty', 'unit_cost')
+    list_display = ('order_nbr', 'sku', 'vendor_id', 'order_date', 'qty')
     search_fields = ('order_nbr', 'sku')
 
 
@@ -70,12 +76,6 @@ class DemandBucketAdmin(ReadOnlyAdmin):
 class SyncRunAdmin(ReadOnlyAdmin):
     list_display = ('started_at', 'source', 'status', 'finished_at', 'triggered_by')
     list_filter = ('source', 'status')
-
-
-@admin.register(models.SettingsChangeLog)
-class SettingsChangeLogAdmin(ReadOnlyAdmin):
-    list_display = ('changed_at', 'user', 'setting', 'old_value', 'new_value')
-    list_filter = ('setting',)
 
 
 @admin.register(models.ReminderSent)

@@ -1,23 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
 <header class="page-header">
-  <div>
+  <div class="page-title">
     <h1>Purchasing Planner</h1>
     <p class="subtitle">
-      {{ result.today|date:"D, M j, Y" }} · Purchasing planning ·
+      {{ result.today|date:"D, M j, Y" }} ·
       {% if not last_sync %}<span class="badge badge-warning">No data loaded</span>
       {% elif last_sync.source == 'acumatica' %}<span>Synced {{ last_sync.finished_at|timesince }} ago</span>
       {% elif last_sync.source == 'import' %}<span class="badge-text warning">Imported data</span>
       {% else %}<span class="badge-text warning">Sample data</span>{% endif %}
     </p>
   </div>
-  {% if is_planner %}
-  <form method="post" action="{% url 'mrp:refresh' %}" data-refresh-form>
-    {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
-    <button type="submit" class="btn btn-outline"{% if running_sync %} disabled{% endif %}{% if not acumatica_configured %} aria-describedby="refresh-note"{% endif %}>{% if running_sync %}Refreshing…{% else %}Refresh from Acumatica{% endif %}</button>
-    {% if not acumatica_configured %}<p id="refresh-note" class="hint">Not connected yet</p>{% endif %}
-  </form>
-  {% endif %}
+  <div class="header-actions">
+    <a class="btn btn-outline btn-small" href="{% url 'mrp:export_csv' %}{{ query }}" title="Export CSV, grouped by vendor">Export CSV</a>
+    {% if is_planner %}
+    <form method="post" action="{% url 'mrp:refresh' %}" data-refresh-form>
+      {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="btn btn-outline btn-small"{% if running_sync %} disabled{% endif %}{% if not acumatica_configured %} aria-describedby="refresh-note"{% endif %}>{% if running_sync %}Refreshing…{% else %}Refresh from Acumatica{% endif %}</button>
+      {% if not acumatica_configured %}<span id="refresh-note" class="hint">Not connected yet</span>{% endif %}
+    </form>
+    {% endif %}
+  </div>
 </header>
 
 {% if running_sync %}{% include "mrp/_refresh_status.html" with running=running_sync %}{% endif %}

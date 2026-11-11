@@ -81,7 +81,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+# Dev: WSGI_APPLICATION=config.dev_wsgi.application mounts the app at /mrp like Apache does
+WSGI_APPLICATION = os.environ.get('WSGI_APPLICATION', 'config.wsgi.application')
 
 
 # Database: own PostgreSQL database, separate from westridgeApp.
@@ -121,6 +122,10 @@ USE_TZ = True
 
 
 # Static files. Under Apache the app is mounted at /mrp, so statics live at /mrp/static/.
+# Where the two-year inventory chart gets its data: westridgeApp's planner endpoint, which is served by the
+# same Apache host. Use a full URL (http://host:port/planner/json/) when developing elsewhere.
+INVENTORY_HISTORY_URL = os.environ.get('MRP_INVENTORY_HISTORY_URL', '/planner/json/')
+
 STATIC_URL = os.environ.get('STATIC_URL', '/static/')
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -167,6 +172,12 @@ ACUMATICA = {
     'SALES_ORDER_TYPES': env_list('ACUMATICA_SALES_ORDER_TYPES', 'SO'),
     # Generic Inquiry with SKU, Warehouse and Available columns
     'AVAILABLE_GI': os.environ.get('ACUMATICA_AVAILABLE_GI', 'LR-Available Qty'),
+    # Generic Inquiry with InventoryID, WarehouseID, LocationID and QtyOnHandinLocation columns, and the
+    # location where received goods wait for inspection (not part of the available quantity)
+    # Generic Inquiry with InventoryID, PlanningMethod and Source columns (the API cannot report them correctly)
+    'ITEM_PLANNING_GI': os.environ.get('ACUMATICA_ITEM_PLANNING_GI', 'IN-StockItem'),
+    'RECEIVING_GI': os.environ.get('ACUMATICA_RECEIVING_GI', 'DB-StorageDetailsByItemWarehouseLocation'),
+    'RECEIVING_LOCATION': os.environ.get('ACUMATICA_RECEIVING_LOCATION', 'REC-INS'),
 }
 
 

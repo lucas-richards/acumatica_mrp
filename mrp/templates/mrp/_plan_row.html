@@ -1,0 +1,58 @@
+{% load mrp_format %}<tr class="row-{{ p.status|status_class }}" data-sku="{{ p.sku }}" data-need="{{ p.missing_for_months_left }}" data-search="{{ p.sku|lower }} {{ p.component.description|lower }}" data-vendor="{{ p.component.vendor_id|default:'' }}" data-status="{{ p.status.value }}" data-backordered="{% if p.component.on_hand < 0 %}1{% else %}0{% endif %}" data-stock="{{ p.stock_for_arrival|plain_num }}" data-usage="{{ p.usage_per_month|plain_num }}" data-lead="{{ p.lead_time_months|plain_num }}">
+          <th scope="row" class="component-cell">
+            <input type="hidden" name="sku" value="{{ p.sku }}">
+            <span class="sku">{{ p.sku }}</span><button type="button" class="chart-btn" data-toggle-row aria-expanded="false" aria-controls="bd-{{ p.sku|dom_id }}" aria-label="2 year graph of inventory levels for {{ p.sku }}" title="2 year graph, inventory levels"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></button><button type="button" class="chart-btn report-btn" data-report-url="{% url 'mrp:report' p.sku %}" aria-label="Purchase requisition for {{ p.sku }}" title="Purchase requisition (print or PDF)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg></button> · {{ p.component.description }}
+            <span class="vendor-name">{{ p.component.vendor_name|default:"No vendor" }}</span>
+            {% if p.flags %}<span class="flags">{% for f in p.flags %}{% if f.value == 'no_default_vendor' or f.value == 'vendor_mismatch' %}<span class="flag flag-warn">{% if f.value == 'no_default_vendor' %}No default vendor set{% else %}Last PO: {{ p.component.last_po_vendor_name|default:p.component.last_po_vendor_id }} &middot; default: {{ p.component.default_vendor_name|default:p.component.default_vendor_id }}{% endif %}{% if is_planner %}<button type="button" class="flag-done" hx-post="{% url 'mrp:warning_done' %}" hx-vals='{"sku": "{{ p.sku|escapejs }}", "flag": "{{ f.value }}"}' hx-target="closest tr" hx-swap="outerHTML" title="Fixed it or checked it? Hide this for a week; it comes back if it is still not fixed">Done</button>{% endif %}</span>{% else %}<span class="flag">{{ f|flag_label }}</span>{% endif %}{% endfor %}</span>{% endif %}
+          </th>
+          <td>
+            {% if p.breakdown %}
+            <button type="button" class="expand-btn" data-toggle-row aria-expanded="false" aria-controls="bd-{{ p.sku|dom_id }}">
+              {{ p.breakdown|length }} FG{{ p.breakdown|length|pluralize }} <span aria-hidden="true" class="chev">⌄</span>
+              <span class="visually-hidden">for {{ p.sku }}</span>
+            </button>
+            {% endif %}
+          </td>
+          <td class="num usage-cell{% if p.usage_basis == 'two_year' %} is-used{% endif %}"{% if is_planner and p.component.long_term_usage is not None and p.usage_basis != 'two_year' %} hx-post="{% url 'mrp:set_usage' %}" hx-vals='{"sku": "{{ p.sku|escapejs }}", "basis": "two_year"}' hx-target="closest tr" hx-swap="outerHTML" tabindex="0" role="button" title="Click to plan with this usage"{% endif %}>{% if p.component.long_term_usage is None %}<span class="muted">—</span>{% else %}<span class="usage-num">{{ p.component.long_term_usage|qty }}</span>{% endif %}{% if p.usage_basis == 'two_year' %}<span class="sub in-use">in use</span>{% endif %}</td>
+          <td class="num usage-cell{% if p.usage_basis == 'six' %} is-used{% endif %}"{% if is_planner and p.usage_basis != 'six' %} hx-post="{% url 'mrp:set_usage' %}" hx-vals='{"sku": "{{ p.sku|escapejs }}", "basis": "six"}' hx-target="closest tr" hx-swap="outerHTML" tabindex="0" role="button" title="Click to plan with this usage"{% endif %}><span class="usage-num">{{ p.component.issue_demand_per_month|default_if_none:0|qty }}</span>{% if p.usage_basis == 'six' %}<span class="sub in-use">in use</span>{% endif %}</td>
+          <td class="num usage-cell{% if p.usage_basis == 'custom' %} is-used{% endif %}"{% if is_planner and p.component.custom_usage is not None and p.usage_basis != 'custom' %} hx-post="{% url 'mrp:set_usage' %}" hx-vals='{"sku": "{{ p.sku|escapejs }}", "basis": "custom"}' hx-target="closest tr" hx-swap="outerHTML" hx-trigger="click[!event.target.closest('input')]" tabindex="0" role="button" title="Click to plan with this usage"{% endif %}>
+            {% if is_planner %}<input type="text" inputmode="decimal" autocomplete="off" name="custom" class="custom-input" value="{{ p.component.custom_usage|plain_qty }}" placeholder="set" aria-label="Custom monthly usage for {{ p.sku }}"
+                   hx-post="{% url 'mrp:set_usage' %}" hx-vals='{"sku": "{{ p.sku|escapejs }}"}' hx-trigger="change" hx-target="closest tr" hx-swap="outerHTML">
+            {% elif p.component.custom_usage is not None %}<span class="usage-num">{{ p.component.custom_usage|qty }}</span>{% else %}<span class="muted">—</span>{% endif %}
+            {% if p.usage_basis == 'custom' %}<span class="sub in-use">in use</span>{% endif %}
+          </td>
+          <td>{{ p.component.lead_time_days|lead_time }}</td>
+          <td class="num">
+            {{ p.component.on_hand|qty }}
+          </td>
+          <td class="num">
+            {% if p.component.on_order %}{{ p.component.on_order|qty }}{% if p.component.on_order_since %}<span class="sub">since {{ p.component.on_order_since|date:"M j, Y" }}</span>{% endif %}{% if p.component.earliest_promised %}<span class="sub">promised {{ p.component.earliest_promised|date:"M j, Y" }}</span>{% endif %}{% else %}<span class="muted">0</span>{% endif %}
+          </td>
+          <td class="num">{% if p.component.in_receiving %}<span class="receiving">{{ p.component.in_receiving|qty }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+          <td class="mos-cell">
+            {% if p.component.on_hand < 0 %}
+            <span class="text-danger strong">Back ordered</span>
+            {% else %}
+            {% supply_bar p as bar %}
+            <div class="mos">
+              <div class="bar" role="img" aria-label="{{ p.months_of_supply|months }} months of supply; lead time {{ p.lead_time_months|months }} months; reorder point {{ p.target_months|months }} months">
+                <span class="bar-fill fill-{{ p.status|status_class }}" style="width: {{ bar.fill }}%"></span>
+                <span class="bar-line line-lead" style="left: {{ bar.lead }}%"></span>
+                <span class="bar-line line-reorder" style="left: {{ bar.reorder }}%"></span>
+                <span class="bar-label label-lead" style="left: {{ bar.lead }}%" aria-hidden="true">LT</span>
+                <span class="bar-label label-reorder" style="left: {{ bar.reorder }}%" aria-hidden="true">+{{ p.prepare_days }}d</span>
+              </div>
+              <span class="mos-value">{{ p.months_of_supply|months }}</span>
+            </div>
+            <span class="pill pill-{{ p.status|status_class }}">{{ p.status.value }}</span>
+            {% endif %}
+          </td>
+          <td class="num">
+            {% if is_planner %}<input type="text" inputmode="decimal" autocomplete="off" name="qty" class="qty-input" value="{{ p.default_order_qty|plain_qty }}" aria-label="Order quantity for {{ p.sku }}">
+            {% else %}<span class="strong">{{ p.default_order_qty|qty }}</span>{% endif %}
+            {% if p.suggested_qty %}<span class="sub">suggested {{ p.suggested_qty|qty }}</span>{% endif %}
+          </td>
+          <td class="num">{% if p.component.last_po_qty is not None %}{{ p.component.last_po_qty|qty }}<span class="sub">{{ p.component.last_po_date|date:"M j, Y" }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="num">{% if p.missing_for_months_left %}<span class="muted need">Need {{ p.missing_for_months_left }}</span><span class="sub">to calculate</span>{% elif p.months_at_arrival < 0 %}<span class="text-danger strong">{{ p.months_at_arrival|months }} mo</span><span class="sub">runs out before it arrives</span>{% else %}{{ p.months_at_arrival|months }} mo{% endif %}</td>
+          <td class="num js-with-order" aria-live="polite">{% with m=p.months_at_arrival_with_default %}{% if p.missing_for_months_left %}<span class="muted need">Need {{ p.missing_for_months_left }}</span><span class="sub">to calculate</span>{% elif m < 0 %}<span class="text-danger strong">{{ m|months }} mo</span><span class="sub">still runs out before it arrives</span>{% else %}<span class="strong">{{ m|months }} mo</span>{% endif %}{% endwith %}</td>
+        </tr>

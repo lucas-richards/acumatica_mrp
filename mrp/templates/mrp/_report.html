@@ -1,0 +1,84 @@
+{% load mrp_format %}
+<article class="sheet" data-history-url="{{ history_url }}" data-sku="{{ p.sku }}" data-stock="{{ p.stock_for_arrival|plain_num }}" data-usage="{{ p.usage_per_month|plain_num }}" data-lead="{{ p.lead_time_months|plain_num }}" data-missing="{{ p.missing_for_months_left }}">
+  <header class="sheet-head">
+    <h2>Purchase requisition</h2>
+    <dl class="sheet-meta">
+      <div><dt>Date</dt><dd>{{ today|date:"F j, Y" }}</dd></div>
+      <div><dt>Requested by</dt><dd>{{ requested_by|default:"—" }}</dd></div>
+    </dl>
+  </header>
+
+  <section class="sheet-item">
+    <div class="sheet-top"><p class="sheet-sku">{{ p.sku }}</p><span class="sheet-status status-{{ p.status|status_class }}">{{ p.status.value }}</span></div>
+    <p class="sheet-desc">{{ p.component.description }}</p>
+    <p class="sheet-vendor">Vendor: <strong>{{ p.component.vendor_name|default:"No vendor" }}</strong></p>
+  </section>
+
+  <section class="sheet-order">
+    <label>Quantity to order <input type="text" inputmode="decimal" autocomplete="off" class="sheet-qty" data-report-qty value="{{ qty|plain_qty }}"></label>
+    <label>Needed by <input type="date" class="sheet-date" data-report-date value="{{ needed_by|date:'Y-m-d' }}"></label>
+    {% if p.suggested_qty %}<span class="sheet-hint">Suggested {{ p.suggested_qty|qty }}</span>{% endif %}
+  </section>
+
+  <section>
+    <h3>Monthly usage</h3>
+    <table class="sheet-table">
+      <thead><tr><th scope="col">2 year average</th><th scope="col">6 months</th>{% if p.component.custom_usage is not None %}<th scope="col">Custom</th>{% endif %}<th scope="col">Used for planning</th></tr></thead>
+      <tbody><tr>
+        <td class="{% if p.usage_basis == 'two_year' %}is-used{% endif %}">{% if p.component.long_term_usage is None %}—{% else %}{{ p.component.long_term_usage|qty }}{% endif %}</td>
+        <td class="{% if p.usage_basis == 'six' %}is-used{% endif %}">{{ p.component.issue_demand_per_month|default_if_none:0|qty }}</td>
+        {% if p.component.custom_usage is not None %}<td class="{% if p.usage_basis == 'custom' %}is-used{% endif %}">{{ p.component.custom_usage|qty }}</td>{% endif %}
+        <td><strong>{{ p.usage_per_month|qty }}</strong> / mo ({% if p.usage_basis == 'two_year' %}2 year{% elif p.usage_basis == 'custom' %}custom{% else %}6 months{% endif %})</td>
+      </tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h3>Stock and supply</h3>
+    <table class="sheet-table">
+      <thead><tr><th scope="col">Lead time</th><th scope="col">Available</th><th scope="col">On order</th><th scope="col">In Receiving</th><th scope="col">Months of supply</th></tr></thead>
+      <tbody><tr>
+        <td>{{ p.component.lead_time_days|lead_time }}</td>
+        <td>{{ p.component.on_hand|qty }}{% if p.component.on_hand < 0 %} (back ordered){% endif %}</td>
+        <td>{{ p.component.on_order|qty }}{% if p.component.on_order_since %}<span class="sub">since {{ p.component.on_order_since|date:"M j, Y" }}</span>{% endif %}</td>
+        <td>{{ p.component.in_receiving|qty }}</td>
+        <td>{% if p.component.on_hand < 0 %}Back ordered{% else %}{{ p.months_of_supply|months }} mo{% endif %}</td>
+      </tr></tbody>
+    </table>
+    <table class="sheet-table">
+      <thead><tr><th scope="col">Months left when an order arrives</th><th scope="col">Months left with this order</th><th scope="col">Last PO</th></tr></thead>
+      <tbody><tr>
+        <td>{% if p.missing_for_months_left %}Need {{ p.missing_for_months_left }}{% else %}{{ p.months_at_arrival|months }} mo{% endif %}</td>
+        <td data-report-with>{% if p.missing_for_months_left %}Need {{ p.missing_for_months_left }}{% else %}{{ with_order|months }} mo{% endif %}</td>
+        <td>{% if p.component.last_po_qty is not None %}{{ p.component.last_po_qty|qty }} on {{ p.component.last_po_date|date:"M j, Y" }}{% else %}—{% endif %}</td>
+      </tr></tbody>
+    </table>
+  </section>
+
+  {% if p.breakdown %}
+  <section>
+    <h3>Finished goods affected</h3>
+    <table class="sheet-table sheet-fg">
+      <thead><tr><th scope="col">Finished good</th><th scope="col">Qty per</th><th scope="col">Demand / mo</th><th scope="col">Stock</th><th scope="col">Last run</th></tr></thead>
+      <tbody>
+        {% for r in p.breakdown|slice:":6" %}
+        <tr>
+          <td><strong>{{ r.fg_sku }}</strong>{% if r.fg_description %} · {{ r.fg_description|truncatechars:40 }}{% endif %}</td>
+          <td>{{ r.qty_per|qty }}</td>
+          <td>{% if r.fg_demand_per_month is None %}—{% else %}{{ r.fg_demand_per_month|qty }}{% endif %}</td>
+          <td>{{ r.fg_on_hand|qty }}</td>
+          <td>{% if r.last_run_qty is None %}—{% else %}{{ r.last_run_qty|qty }} ({{ r.last_run_date|date:"M j, Y" }}){% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if p.breakdown|length > 6 %}<p class="sheet-hint">and {{ p.breakdown|length|add:"-6" }} more</p>{% endif %}
+  </section>
+  {% endif %}
+
+  <section class="sheet-chart" data-history-pane data-sku="{{ p.sku }}">
+    <h3>2 year graph inventory levels</h3>
+    <p class="history-note" role="status" aria-live="polite"></p>
+    <div class="history-chart"><canvas role="img" aria-label="2 year graph of inventory levels for {{ p.sku }}"></canvas></div>
+  </section>
+</article>

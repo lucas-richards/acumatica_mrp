@@ -1,8 +1,0 @@
-{% url 'mrp:plan' as plan_url %}{% if q %}
-{% for vid, name, query in results %}
-<a class="chip" href="{{ plan_url }}{{ query }}" hx-get="{{ plan_url }}{{ query }}" hx-target="#plan-content" hx-push-url="true" hx-indicator="#plan-loading, #plan-content">{{ name }}</a>
-{% empty %}
-<p class="muted">No vendor matches “{{ q }}”.</p>
-{% endfor %}
-{% if results|length == limit %}<p class="hint">Showing the first {{ limit }} matches; type more to narrow it down.</p>{% endif %}
-{% endif %}

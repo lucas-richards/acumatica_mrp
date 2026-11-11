@@ -21,14 +21,14 @@ class ReminderStatusTests(unittest.TestCase):
 
 class VendorRollupTests(unittest.TestCase):
     def test_rollup(self):
-        fgs = [FinishedGood('FG', 'FG', D(0), D(10))]
+        fgs = [FinishedGood('FG', 'FG')]
         comps = [
-            ComponentInput('A1', vendor_id='A', on_hand=D(5), lead_time_days=60),     # late
-            ComponentInput('A2', vendor_id='A', on_hand=D(25), lead_time_days=60),    # due later
-            ComponentInput('B1', vendor_id='B', on_hand=D(1000), lead_time_days=60),  # covered
+            ComponentInput('A1', vendor_id='A', on_hand=D(5), lead_time_days=60, issue_demand_per_month=D(10)),     # late
+            ComponentInput('A2', vendor_id='A', on_hand=D(25), lead_time_days=60, issue_demand_per_month=D(10)),    # due later
+            ComponentInput('B1', vendor_id='B', on_hand=D(1000), lead_time_days=60, issue_demand_per_month=D(10)),  # covered
         ]
         bom = [BomLine('FG', c.sku, D(1)) for c in comps]
-        plans = mrp.plan_components(comps, bom, fgs, 1, QtyMode.COVER_TARGET, TODAY)
+        plans = mrp.plan_components(comps, bom, fgs, QtyMode.COVER_TARGET, TODAY)
         vendors = [VendorInfo('B', 'Bravo', 60), VendorInfo('A', 'Alpha', 60), VendorInfo('C', 'Charlie', None)]
         result = vendor_reminders(plans, vendors, TODAY, 30)
 
